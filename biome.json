@@ -12,7 +12,8 @@
       "**/packages/**",
       "!**/node_modules",
       "!**/dist",
-      "!**/src-tauri/target"
+      "!**/src-tauri/target",
+      "!**/bindings.ts"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },

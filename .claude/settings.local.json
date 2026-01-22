@@ -11,7 +11,10 @@
       "Bash(npx shadcn@latest init -y -d)",
       "Bash(npx shadcn@latest add:*)",
       "Bash(bunx tsc:*)",
-      "Bash(bunx biome:*)"
+      "Bash(bunx biome:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo search:*)",
+      "Bash(cargo test:*)"
     ]
   }
 }

@@ -20,6 +20,16 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+specta = { version = "=2.0.0-rc.22", features = ["derive"] }
+tauri-specta = { git = "https://github.com/specta-rs/tauri-specta", branch = "main", features = ["typescript"] }
+specta-typescript = "0.0.9"
+
+# Editor dependencies
+walkdir = "2"
+notify = "6"
+regex = "1"
+tokio = { version = "1", features = ["fs"] }
 
