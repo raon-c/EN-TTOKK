@@ -1,0 +1,5 @@
+{
+  "name": "bun-enttokk",
+  "private": true,
+  "workspaces": ["packages/*", "apps/*"]
+}
