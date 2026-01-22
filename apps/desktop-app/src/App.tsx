@@ -1,6 +1,10 @@
+import { listen } from "@tauri-apps/api/event";
+import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 
 import { commands } from "@/bindings";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { SettingsDialog, useSettingsStore } from "@/features/settings";
 import { VaultPicker } from "@/features/vault/components/VaultPicker";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { EditorLayout } from "@/layouts/EditorLayout";
@@ -13,11 +17,40 @@ function LoadingScreen() {
   );
 }
 
-function App() {
+function ThemeSynchronizer() {
+  const { setTheme } = useTheme();
+  const { settings } = useSettingsStore();
+
+  useEffect(() => {
+    setTheme(settings.theme);
+  }, [settings.theme, setTheme]);
+
+  return null;
+}
+
+function AppContent() {
   const { path, _hasHydrated, openVault, closeVault } = useVaultStore();
+  const { loadSettings, _hasHydrated: settingsHydrated } = useSettingsStore();
   const [isValidating, setIsValidating] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const hasAttemptedAutoOpen = useRef(false);
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  // Listen for menu events
+  useEffect(() => {
+    const unlisten = listen("open-settings", () => {
+      setSettingsOpen(true);
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   useEffect(() => {
     if (!_hasHydrated || hasAttemptedAutoOpen.current) return;
@@ -38,15 +71,29 @@ function App() {
       .finally(() => setIsValidating(false));
   }, [_hasHydrated, path, openVault, closeVault]);
 
-  if (!_hasHydrated || isValidating) {
+  if (!_hasHydrated || !settingsHydrated || isValidating) {
     return <LoadingScreen />;
   }
 
-  if (!path || validationError) {
-    return <VaultPicker initialError={validationError} />;
-  }
+  return (
+    <>
+      <ThemeSynchronizer />
+      {!path || validationError ? (
+        <VaultPicker initialError={validationError} />
+      ) : (
+        <EditorLayout />
+      )}
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+    </>
+  );
+}
 
-  return <EditorLayout />;
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
 }
 
 export default App;
