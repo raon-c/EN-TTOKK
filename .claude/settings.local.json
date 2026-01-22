@@ -5,7 +5,12 @@
       "mcp__plugin_context7_context7__query-docs",
       "Bash(bun install:*)",
       "Bash(bun run:*)",
-      "Bash(cargo --version:*)"
+      "Bash(cargo --version:*)",
+      "Skill(plan)",
+      "Bash(bun add:*)",
+      "Bash(npx shadcn@latest init -y -d)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(bunx tsc:*)"
     ]
   }
 }
