@@ -1,11 +1,8 @@
+import { Effect } from "effect";
 import { create } from "zustand";
 
-import {
-  commands,
-  type FileEntry,
-  type Result,
-  type VaultConfig,
-} from "@/bindings";
+import { commands, type FileEntry, type VaultConfig } from "@/bindings";
+import { NoVaultError, runCommand, runEffect } from "@/lib/effect";
 import type { Note } from "@/types/note";
 
 // Re-export types from bindings for external use
@@ -35,13 +32,6 @@ interface VaultStore {
   clearError: () => void;
 }
 
-function unwrapResult<T>(result: Result<T, string>): T {
-  if (result.status === "error") {
-    throw new Error(result.error);
-  }
-  return result.data;
-}
-
 export const useVaultStore = create<VaultStore>((set, get) => ({
   path: null,
   name: "",
@@ -51,54 +41,59 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
   error: null,
 
   openVault: async (vaultPath: string) => {
-    try {
-      set({ error: null });
-      const config = unwrapResult(await commands.openVault(vaultPath));
-      const files = unwrapResult(await commands.readDirectory(vaultPath));
-      const allNotes = unwrapResult(await commands.getAllNotes(vaultPath));
+    set({ error: null });
+
+    const program = Effect.gen(function* () {
+      const { path, name } = yield* runCommand(() =>
+        commands.openVault(vaultPath)
+      );
+      const files = yield* runCommand(() => commands.readDirectory(vaultPath));
+      const allNotes = yield* runCommand(() => commands.getAllNotes(vaultPath));
 
       set({
-        path: config.path,
-        name: config.name,
+        path,
+        name,
         files,
         allNotes,
         activeNote: null,
       });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to open vault";
-      set({ error: message });
-      throw new Error(message);
-    }
+    });
+
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
   },
 
   refreshFiles: async () => {
     const { path } = get();
     if (!path) return;
 
-    try {
-      const files = unwrapResult(await commands.readDirectory(path));
-      const allNotes = unwrapResult(await commands.getAllNotes(path));
+    const program = Effect.gen(function* () {
+      const files = yield* runCommand(() => commands.readDirectory(path));
+      const allNotes = yield* runCommand(() => commands.getAllNotes(path));
 
       set({ files, allNotes });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to refresh files";
-      set({ error: message });
-    }
+    });
+
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
   },
 
   openNote: async (notePath: string) => {
     const { path: vaultPath } = get();
-    if (!vaultPath) {
-      set({ error: "No vault open" });
-      return;
-    }
 
-    try {
-      set({ error: null });
-      const content = unwrapResult(
-        await commands.readFile(notePath, vaultPath)
+    const program = Effect.gen(function* () {
+      if (!vaultPath) {
+        return yield* Effect.fail(
+          new NoVaultError({ message: "No vault open" })
+        );
+      }
+
+      const content = yield* runCommand(() =>
+        commands.readFile(notePath, vaultPath)
       );
 
       const fileName = notePath.split("/").pop() ?? "Untitled";
@@ -115,23 +110,26 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
         links: extractWikiLinks(content),
       };
 
-      set({ activeNote: note });
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to open note";
-      set({ error: message });
-    }
+      set({ activeNote: note, error: null });
+    });
+
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
   },
 
   saveNote: async (notePath: string, content: string) => {
     const { path: vaultPath } = get();
-    if (!vaultPath) {
-      set({ error: "No vault open" });
-      return;
-    }
 
-    try {
-      unwrapResult(await commands.writeFile(notePath, content, vaultPath));
+    const program = Effect.gen(function* () {
+      if (!vaultPath) {
+        return yield* Effect.fail(
+          new NoVaultError({ message: "No vault open" })
+        );
+      }
+
+      yield* runCommand(() => commands.writeFile(notePath, content, vaultPath));
 
       const { activeNote } = get();
       if (activeNote && activeNote.path === notePath) {
@@ -145,74 +143,81 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
           },
         });
       }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to save note";
-      set({ error: message });
-    }
+    });
+
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
   },
 
   createNote: async (name: string, folder?: string) => {
     const { path: vaultPath } = get();
-    if (!vaultPath) {
-      const message = "No vault open";
-      set({ error: message });
-      throw new Error(message);
-    }
 
-    try {
-      set({ error: null });
+    const program = Effect.gen(function* () {
+      if (!vaultPath) {
+        return yield* Effect.fail(
+          new NoVaultError({ message: "No vault open" })
+        );
+      }
+
       const fileName = name.endsWith(".md") ? name : `${name}.md`;
       const notePath = folder
         ? `${folder}/${fileName}`
         : `${vaultPath}/${fileName}`;
 
-      unwrapResult(await commands.createFile(notePath, vaultPath));
-      await get().refreshFiles();
+      yield* runCommand(() => commands.createFile(notePath, vaultPath));
 
       return notePath;
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to create note";
-      set({ error: message });
-      throw new Error(message);
-    }
+    });
+
+    set({ error: null });
+    const notePath = await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
+    await get().refreshFiles();
+
+    return notePath;
   },
 
   deleteNote: async (notePath: string) => {
     const { path: vaultPath } = get();
-    if (!vaultPath) {
-      set({ error: "No vault open" });
-      return;
-    }
 
-    try {
-      set({ error: null });
-      unwrapResult(await commands.deleteFile(notePath, vaultPath));
+    const program = Effect.gen(function* () {
+      if (!vaultPath) {
+        return yield* Effect.fail(
+          new NoVaultError({ message: "No vault open" })
+        );
+      }
+
+      yield* runCommand(() => commands.deleteFile(notePath, vaultPath));
 
       const { activeNote } = get();
       if (activeNote?.path === notePath) {
         set({ activeNote: null });
       }
+    });
 
-      await get().refreshFiles();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to delete note";
-      set({ error: message });
-    }
+    set({ error: null });
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
+    await get().refreshFiles();
   },
 
   renameNote: async (oldPath: string, newPath: string) => {
     const { path: vaultPath } = get();
-    if (!vaultPath) {
-      set({ error: "No vault open" });
-      return;
-    }
 
-    try {
-      set({ error: null });
-      unwrapResult(await commands.renameFile(oldPath, newPath, vaultPath));
+    const program = Effect.gen(function* () {
+      if (!vaultPath) {
+        return yield* Effect.fail(
+          new NoVaultError({ message: "No vault open" })
+        );
+      }
+
+      yield* runCommand(() => commands.renameFile(oldPath, newPath, vaultPath));
 
       const { activeNote } = get();
       if (activeNote?.path === oldPath) {
@@ -226,31 +231,36 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
           },
         });
       }
+    });
 
-      await get().refreshFiles();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to rename note";
-      set({ error: message });
-    }
+    set({ error: null });
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
+
+    await get().refreshFiles();
   },
 
   createFolder: async (folderPath: string) => {
     const { path: vaultPath } = get();
-    if (!vaultPath) {
-      set({ error: "No vault open" });
-      return;
-    }
 
-    try {
-      set({ error: null });
-      unwrapResult(await commands.createFolder(folderPath, vaultPath));
-      await get().refreshFiles();
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to create folder";
-      set({ error: message });
-    }
+    const program = Effect.gen(function* () {
+      if (!vaultPath) {
+        return yield* Effect.fail(
+          new NoVaultError({ message: "No vault open" })
+        );
+      }
+
+      yield* runCommand(() => commands.createFolder(folderPath, vaultPath));
+    });
+
+    set({ error: null });
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
+    await get().refreshFiles();
   },
 
   closeNote: () => {
@@ -283,22 +293,22 @@ export const useVaultStore = create<VaultStore>((set, get) => ({
   },
 
   openNoteByName: async (name: string) => {
-    try {
+    const program = Effect.gen(function* () {
       const { findNotePath, openNote, createNote } = get();
       const notePath = findNotePath(name);
 
       if (notePath) {
-        await openNote(notePath);
+        yield* Effect.promise(() => openNote(notePath));
       } else {
-        // Create new note if not found
-        const newPath = await createNote(name);
-        await openNote(newPath);
+        const newPath = yield* Effect.promise(() => createNote(name));
+        yield* Effect.promise(() => openNote(newPath));
       }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to open note by name";
-      set({ error: message });
-    }
+    });
+
+    await runEffect({
+      effect: program,
+      onError: (message) => set({ error: message }),
+    });
   },
 
   clearError: () => {
