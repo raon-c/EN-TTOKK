@@ -2,7 +2,7 @@ mod commands;
 
 use commands::{
     create_file, create_folder, create_vault, delete_file, get_all_notes, open_vault,
-    read_directory, read_file, rename_file, write_file,
+    read_directory, read_file, rename_file, validate_vault_path, write_file,
 };
 use specta_typescript::{BigIntExportBehavior, Typescript};
 use tauri_specta::{collect_commands, Builder};
@@ -19,6 +19,7 @@ fn create_specta_builder() -> Builder {
         // Vault commands
         open_vault,
         create_vault,
+        validate_vault_path,
         // File commands
         read_directory,
         read_file,

@@ -24,6 +24,14 @@ async createVault(path: string, name: string) : Promise<Result<VaultConfig, stri
     else return { status: "error", error: e  as any };
 }
 },
+async validateVaultPath(path: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("validate_vault_path", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_directory", { path }) };

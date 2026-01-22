@@ -12,10 +12,14 @@ import {
 
 import { useVaultStore } from "../store/vaultStore";
 
-export function VaultPicker() {
+interface VaultPickerProps {
+  initialError?: string | null;
+}
+
+export function VaultPicker({ initialError = null }: VaultPickerProps) {
   const { openVault } = useVaultStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
 
   const handleOpenVault = async () => {
     setIsLoading(true);

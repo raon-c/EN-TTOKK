@@ -46,3 +46,14 @@ pub async fn create_vault(path: String, name: String) -> Result<VaultConfig, Str
 
     Ok(VaultConfig { path, name })
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn validate_vault_path(path: String) -> Result<bool, String> {
+    let vault_path = Path::new(&path);
+    if vault_path.exists() && vault_path.is_dir() {
+        Ok(true)
+    } else {
+        Err("Vault path does not exist or is not a directory".to_string())
+    }
+}
