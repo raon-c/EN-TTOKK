@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import reactLogo from "./assets/react.svg";
 
@@ -59,9 +59,7 @@ function App() {
         <Button type="submit">Greet</Button>
       </form>
 
-      {greetMsg && (
-        <p className="mt-4 text-lg font-medium">{greetMsg}</p>
-      )}
+      {greetMsg && <p className="mt-4 text-lg font-medium">{greetMsg}</p>}
     </main>
   );
 }

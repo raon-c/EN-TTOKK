@@ -25,6 +25,17 @@ cd apps/desktop-app && bun run dev
 
 # TypeScript 타입 검사
 cd apps/desktop-app && bunx tsc --noEmit
+
+# 코드 린팅 (Biome)
+bun run lint              # 린트 검사
+bun run lint:fix          # 린트 오류 자동 수정
+
+# 코드 포매팅 (Biome)
+bun run format            # 포매팅 적용
+
+# 린트 + 포매팅 통합 검사 (Biome)
+bun run check             # 전체 검사
+bun run check:fix         # 전체 검사 후 자동 수정
 ```
 
 ## 아키텍처
