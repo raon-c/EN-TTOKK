@@ -29,17 +29,19 @@ function ThemeSynchronizer() {
 }
 
 function AppContent() {
-  const { path, _hasHydrated, openVault, closeVault } = useVaultStore();
+  const { path, _hasHydrated, openVault, closeVault, loadVault } =
+    useVaultStore();
   const { loadSettings, _hasHydrated: settingsHydrated } = useSettingsStore();
   const [isValidating, setIsValidating] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const hasAttemptedAutoOpen = useRef(false);
 
-  // Load settings on mount
+  // Load settings and vault on mount
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    loadVault();
+  }, [loadSettings, loadVault]);
 
   // Listen for menu events
   useEffect(() => {
