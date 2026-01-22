@@ -34,23 +34,6 @@ export function runCommand<T>(
   }).pipe(Effect.flatMap(fromResult));
 }
 
-// Helper: Run Effect and handle errors
-// export async function runEffect<T>(
-//   effect: Effect.Effect<T, AppError>,
-//   onError: (message: string) => void
-// ): Promise<T> {
-//   return Effect.runPromise(
-//     effect.pipe(
-//       Effect.catchAll((error) =>
-//         Effect.flatMap(
-//           Effect.sync(() => onError(error.message)),
-//           () => Effect.fail(error)
-//         )
-//       )
-//     )
-//   );
-// }
-
 export const runEffect = <T>({
   effect,
   onError,
