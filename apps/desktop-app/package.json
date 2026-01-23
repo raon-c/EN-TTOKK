@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:full": "concurrently -k -n backend,tauri -c blue,green \"bun run --cwd ../backend dev\" \"tauri dev\"",
+    "dev:full": "bun run build:sidecar && concurrently -k -n backend,tauri -c blue,green \"bun run --cwd ../backend dev\" \"tauri dev\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
