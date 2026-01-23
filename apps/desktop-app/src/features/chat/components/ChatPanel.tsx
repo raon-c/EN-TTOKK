@@ -18,6 +18,7 @@ import {
   ToolInput,
 } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
+import { SidebarHeader } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useChat } from "../hooks/useChat";
 
@@ -82,24 +83,25 @@ export function ChatPanel({ workingDirectory, className }: ChatPanelProps) {
         className
       )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b shrink-0">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-medium">Chat</h2>
-          {isLoading && <Loader size={14} />}
-          {isUnavailable && (
-            <span className="text-xs text-destructive">CLI unavailable</span>
-          )}
+      <SidebarHeader className="border-b px-3 py-2 shrink-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">Chat</span>
+            {isLoading && <Loader size={14} />}
+            {isUnavailable && (
+              <span className="text-xs text-destructive">CLI unavailable</span>
+            )}
+          </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={newConversation}
+            title="New conversation"
+          >
+            <Plus className="size-4" />
+          </Button>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={newConversation}
-          title="New conversation"
-        >
-          <Plus className="size-4" />
-        </Button>
-      </div>
+      </SidebarHeader>
 
       {/* Error Banner */}
       {error && (

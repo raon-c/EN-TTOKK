@@ -2,7 +2,7 @@ import * as React from "react";
 import { toast } from "sonner";
 
 import { Calendar } from "@/components/ui/calendar";
-import { SidebarContent } from "@/components/ui/sidebar";
+import { SidebarContent, SidebarHeader } from "@/components/ui/sidebar";
 import { useSettingsStore } from "@/features/settings/store/settingsStore";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
 
@@ -51,19 +51,26 @@ export function DailyNotesCalendar() {
   };
 
   return (
-    <SidebarContent>
-      <Calendar
-        mode="single"
-        selected={selectedDate}
-        onSelect={handleDateSelect}
-        disabled={isScanning}
-        className="w-full bg-sidebar"
-        components={{
-          DayButton: (props) => (
-            <CalendarDayWithDot {...props} settings={dailyNotesSettings} />
-          ),
-        }}
-      />
-    </SidebarContent>
+    <>
+      <SidebarHeader className="border-b px-3 py-2">
+        <div className="flex h-8 items-center justify-between">
+          <span className="text-sm font-semibold">Calendar</span>
+        </div>
+      </SidebarHeader>
+      <SidebarContent>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={handleDateSelect}
+          disabled={isScanning}
+          className="w-full bg-sidebar"
+          components={{
+            DayButton: (props) => (
+              <CalendarDayWithDot {...props} settings={dailyNotesSettings} />
+            ),
+          }}
+        />
+      </SidebarContent>
+    </>
   );
 }

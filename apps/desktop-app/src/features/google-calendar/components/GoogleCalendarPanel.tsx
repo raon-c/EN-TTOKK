@@ -12,7 +12,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
-import { SidebarContent } from "@/components/ui/sidebar";
+import { SidebarContent, SidebarHeader } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useGoogleCalendarStore } from "../store/googleCalendarStore";
 import { getEventDateKey } from "../utils/dates";
@@ -67,11 +67,10 @@ export function GoogleCalendarPanel() {
     : "Select a date";
 
   return (
-    <SidebarContent>
-      <div className="space-y-2 px-3 pt-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold">Google Calendar</div>
-
+    <>
+      <SidebarHeader className="border-b px-3 py-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-semibold">Google Calendar</span>
           <div className="flex flex-wrap items-center gap-2">
             {showConnect ? (
               <Button
@@ -104,11 +103,10 @@ export function GoogleCalendarPanel() {
             )}
           </div>
         </div>
-
         {error && <div className="text-xs text-destructive">{error}</div>}
-      </div>
-
-      <Calendar
+      </SidebarHeader>
+      <SidebarContent>
+        <Calendar
         mode="single"
         selected={selectedDate ?? new Date()}
         onSelect={selectDate}
@@ -182,6 +180,7 @@ export function GoogleCalendarPanel() {
           </div>
         )}
       </div>
-    </SidebarContent>
+      </SidebarContent>
+    </>
   );
 }
