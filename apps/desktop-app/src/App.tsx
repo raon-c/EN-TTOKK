@@ -55,7 +55,11 @@ function AppContent() {
   const { path, _hasHydrated, openVault, closeVault, loadVault } =
     useVaultStore();
   const { loadSettings, _hasHydrated: settingsHydrated } = useSettingsStore();
-  const { status: backendStatus, error: backendError, retry: retryBackend } = useBackend();
+  const {
+    status: backendStatus,
+    error: backendError,
+    retry: retryBackend,
+  } = useBackend();
   const [isValidating, setIsValidating] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);

@@ -8,9 +8,7 @@ function getTargetTriple(): string {
   const arch = process.arch;
 
   if (platform === "darwin") {
-    return arch === "arm64"
-      ? "aarch64-apple-darwin"
-      : "x86_64-apple-darwin";
+    return arch === "arm64" ? "aarch64-apple-darwin" : "x86_64-apple-darwin";
   }
   if (platform === "win32") {
     return "x86_64-pc-windows-msvc";

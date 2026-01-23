@@ -1,6 +1,8 @@
+import type { HealthResponse } from "@enttokk/api-types";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import type { HealthResponse } from "@enttokk/api-types";
+import { logger } from "./lib/logger";
+import chat from "./routes/chat";
 
 const app = new Hono();
 
@@ -23,6 +25,9 @@ app.get("/healthz", (c) => {
   return c.json(response);
 });
 
+// Chat routes
+app.route("/chat", chat);
+
 // Get port from environment or use default
 const port = Number(process.env.PORT) || 31337;
 
@@ -30,19 +35,21 @@ const port = Number(process.env.PORT) || 31337;
 const server = Bun.serve({
   port,
   fetch: app.fetch,
+  // Disable idle timeout for SSE streaming (0 = no timeout)
+  idleTimeout: 0,
 });
 
-console.log(`Backend server running on http://localhost:${port}`);
+logger.info(`Backend server running on http://localhost:${port}`);
 
 // Handle shutdown signals
 process.on("SIGINT", () => {
-  console.log("Received SIGINT, shutting down...");
+  logger.info("Received SIGINT, shutting down...");
   server.stop();
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-  console.log("Received SIGTERM, shutting down...");
+  logger.info("Received SIGTERM, shutting down...");
   server.stop();
   process.exit(0);
 });
