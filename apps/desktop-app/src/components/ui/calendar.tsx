@@ -1,5 +1,6 @@
 "use client";
 
+import { ko } from "date-fns/locale";
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -173,6 +174,7 @@ function Calendar({
         },
         ...components,
       }}
+      locale={ko}
       {...props}
     />
   );

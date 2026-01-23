@@ -1,7 +1,6 @@
-import * as React from "react";
 import { format, parseISO } from "date-fns";
-import { CalendarDays, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CalendarDays, LogIn, LogOut, RefreshCw } from "lucide-react";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -15,8 +14,6 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { SidebarContent } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-
-import { SYNC_RANGE_FUTURE_DAYS, SYNC_RANGE_PAST_DAYS } from "../config";
 import { useGoogleCalendarStore } from "../store/googleCalendarStore";
 import { getEventDateKey } from "../utils/dates";
 import { CalendarDayWithEventDot } from "./CalendarDayWithEventDot";
@@ -30,34 +27,18 @@ const formatEventTime = (start?: string, end?: string, isAllDay?: boolean) => {
   return `${format(startDate, "HH:mm")}-${format(endDate, "HH:mm")}`;
 };
 
-const statusLabelMap = {
-  disconnected: "Disconnected",
-  connecting: "Connecting",
-  connected: "Connected",
-  error: "Error",
-} as const;
-
-const statusVariantMap: Record<
-  keyof typeof statusLabelMap,
-  "secondary" | "outline" | "destructive"
-> = {
-  disconnected: "outline",
-  connecting: "outline",
-  connected: "secondary",
-  error: "destructive",
-};
-
 export function GoogleCalendarPanel() {
   const status = useGoogleCalendarStore((state) => state.status);
   const error = useGoogleCalendarStore((state) => state.error);
   const events = useGoogleCalendarStore((state) => state.events);
-  const selectedEvents = useGoogleCalendarStore((state) => state.selectedEvents);
+  const selectedEvents = useGoogleCalendarStore(
+    (state) => state.selectedEvents
+  );
   const selectedDate = useGoogleCalendarStore((state) => state.selectedDate);
-  const lastSyncAt = useGoogleCalendarStore((state) => state.lastSyncAt);
   const isSyncing = useGoogleCalendarStore((state) => state.isSyncing);
   const isDayLoading = useGoogleCalendarStore((state) => state.isDayLoading);
-  const hasTokens = useGoogleCalendarStore(
-    (state) => Boolean(state.tokens?.accessToken)
+  const hasTokens = useGoogleCalendarStore((state) =>
+    Boolean(state.tokens?.accessToken)
   );
   const connect = useGoogleCalendarStore((state) => state.connect);
   const disconnect = useGoogleCalendarStore((state) => state.disconnect);
@@ -65,8 +46,6 @@ export function GoogleCalendarPanel() {
   const selectDate = useGoogleCalendarStore((state) => state.selectDate);
 
   const showConnect = !hasTokens;
-  const statusLabel = isSyncing ? "Syncing" : statusLabelMap[status];
-  const statusVariant = isSyncing ? "outline" : statusVariantMap[status];
 
   const eventDates = React.useMemo(() => {
     const set = new Set<string>();
@@ -90,46 +69,42 @@ export function GoogleCalendarPanel() {
   return (
     <SidebarContent>
       <div className="space-y-2 px-3 pt-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <div className="text-sm font-semibold">Google Calendar</div>
-            <div className="text-xs text-muted-foreground">
-              Past {SYNC_RANGE_PAST_DAYS} days / Next {SYNC_RANGE_FUTURE_DAYS} days
-            </div>
-          </div>
-          <Badge variant={statusVariant}>{statusLabel}</Badge>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {showConnect ? (
-            <Button
-              size="sm"
-              onClick={() => connect()}
-              disabled={status === "connecting"}
-            >
-              Connect
-            </Button>
-          ) : (
-            <>
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-sm font-semibold">Google Calendar</div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {showConnect ? (
               <Button
                 size="sm"
-                variant="outline"
-                onClick={() => syncNow()}
-                disabled={isSyncing}
+                onClick={() => connect()}
+                disabled={status === "connecting"}
               >
-                <RefreshCw className={cn("size-3", isSyncing && "animate-spin")} />
-                Sync
+                <LogIn className="size-3" />
               </Button>
-              <Button size="sm" variant="destructive" onClick={() => disconnect()}>
-                Disconnect
-              </Button>
-            </>
-          )}
-        </div>
-        {lastSyncAt && (
-          <div className="text-xs text-muted-foreground">
-            Last synced: {new Date(lastSyncAt).toLocaleTimeString()}
+            ) : (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => syncNow()}
+                  disabled={isSyncing}
+                >
+                  <RefreshCw
+                    className={cn("size-3", isSyncing && "animate-spin")}
+                  />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => disconnect()}
+                >
+                  <LogOut className="size-3" />
+                </Button>
+              </>
+            )}
           </div>
-        )}
+        </div>
+
         {error && <div className="text-xs text-destructive">{error}</div>}
       </div>
 
