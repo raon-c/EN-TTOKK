@@ -3,12 +3,7 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { logger } from "../lib/logger";
 import { cancelRequestSchema, chatRequestSchema } from "../lib/validation";
-import {
-  cancelRequest,
-  checkClaudeCliStatus,
-  sendMessage,
-  streamMessage,
-} from "../services/claude-cli";
+import { getChatProvider } from "../services/chat-providers/registry";
 
 const KEEPALIVE_INTERVAL_MS = 15000;
 
@@ -19,7 +14,8 @@ const chat = new Hono();
  * Check if Claude CLI is available
  */
 chat.get("/status", async (c) => {
-  const status: ClaudeStatusResponse = await checkClaudeCliStatus();
+  const provider = getChatProvider();
+  const status: ClaudeStatusResponse = await provider.checkStatus();
   return c.json(status);
 });
 
@@ -38,10 +34,18 @@ chat.post("/", async (c) => {
     );
   }
 
-  const { message, workingDirectory } = parsed.data;
+  const { message, workingDirectory, sessionId, systemPrompt, conversationId } =
+    parsed.data;
+  const provider = getChatProvider();
 
   try {
-    const result = await sendMessage(message, workingDirectory);
+    const result = await provider.sendMessage({
+      message,
+      workingDirectory,
+      sessionId,
+      systemPrompt,
+      conversationId,
+    });
     return c.json({
       message: {
         id: crypto.randomUUID(),
@@ -74,7 +78,9 @@ chat.post("/stream", async (c) => {
     );
   }
 
-  const { message, workingDirectory, sessionId } = parsed.data;
+  const { message, workingDirectory, sessionId, systemPrompt, conversationId } =
+    parsed.data;
+  const provider = getChatProvider();
   const requestId = crypto.randomUUID();
 
   return streamSSE(
@@ -94,10 +100,12 @@ chat.post("/stream", async (c) => {
       }, KEEPALIVE_INTERVAL_MS);
 
       try {
-        for await (const chunk of streamMessage({
+        for await (const chunk of provider.streamMessage({
           message,
           workingDirectory,
           sessionId,
+          systemPrompt,
+          conversationId,
           requestId,
         })) {
           await stream.writeSSE({
@@ -140,7 +148,8 @@ chat.post("/cancel", async (c) => {
     );
   }
 
-  const cancelled = cancelRequest(parsed.data.requestId);
+  const provider = getChatProvider();
+  const cancelled = provider.cancelRequest(parsed.data.requestId);
   return c.json({ cancelled });
 });
 

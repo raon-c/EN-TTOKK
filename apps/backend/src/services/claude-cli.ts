@@ -304,29 +304,39 @@ export function cancelRequest(requestId: string): boolean {
 /**
  * Send a single message and get complete response (non-streaming)
  */
-export async function sendMessage(
-  message: string,
-  workingDirectory?: string
-): Promise<{ content: string; sessionId?: string }> {
+export async function sendMessage(options: {
+  message: string;
+  workingDirectory?: string;
+  sessionId?: string;
+  systemPrompt?: string;
+}): Promise<{ content: string; sessionId?: string }> {
   const requestId = crypto.randomUUID();
+  const {
+    message,
+    workingDirectory,
+    sessionId: initialSessionId,
+    systemPrompt,
+  } = options;
   let content = "";
-  let sessionId: string | undefined;
+  let resolvedSessionId: string | undefined = initialSessionId;
 
   for await (const chunk of streamMessage({
     message,
     workingDirectory,
+    sessionId: initialSessionId,
+    systemPrompt,
     requestId,
   })) {
     if (chunk.type === "text_delta" && chunk.text) {
       content += chunk.text;
     } else if (chunk.type === "start" && chunk.sessionId) {
-      sessionId = chunk.sessionId;
+      resolvedSessionId = chunk.sessionId;
     } else if (chunk.type === "done" && chunk.sessionId) {
-      sessionId = chunk.sessionId;
+      resolvedSessionId = chunk.sessionId;
     } else if (chunk.type === "error") {
       throw new Error(chunk.error ?? "Unknown error");
     }
   }
 
-  return { content, sessionId };
+  return { content, sessionId: resolvedSessionId };
 }
