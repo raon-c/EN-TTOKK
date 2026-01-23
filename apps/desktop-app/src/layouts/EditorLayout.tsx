@@ -4,6 +4,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { DailyNotesCalendar } from "@/features/daily-notes";
 import { Editor } from "@/features/editor/components/Editor";
 import { FileExplorer } from "@/features/vault/components/FileExplorer";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
@@ -25,7 +26,7 @@ export function EditorLayout() {
         <div className="flex flex-1 h-full overflow-hidden">
           {/* Left SideBar */}
           <SidebarProvider>
-            <div className="h-full w-11 z-9999 bg-accent border-r">
+            <div className="h-full w-11 z-50 bg-accent border-r">
               <div className="flex h-11 items-center w-full justify-center">
                 <SidebarTrigger />
               </div>
@@ -44,6 +45,7 @@ export function EditorLayout() {
                 </header>
                 <main className="flex-1 overflow-hidden">
                   <Editor
+                    key={activeNote.path}
                     content={activeNote.content}
                     onSave={(content) => saveNote(activeNote.path, content)}
                     onLinkClick={handleLinkClick}
@@ -58,8 +60,10 @@ export function EditorLayout() {
 
           {/* Right SideBar */}
           <SidebarProvider>
-            <Sidebar side="right">{/* <FileExplorer /> */}</Sidebar>
-            <div className="h-full w-11 z-9999 bg-accent border-l">
+            <Sidebar side="right">
+              <DailyNotesCalendar />
+            </Sidebar>
+            <div className="h-full w-11 z-50 bg-accent border-l">
               <div className="flex h-11 items-center w-full justify-center">
                 <SidebarTrigger />
               </div>

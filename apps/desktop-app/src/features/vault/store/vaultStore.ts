@@ -3,6 +3,7 @@ import { create } from "zustand";
 
 import { commands, type FileEntry, type VaultConfig } from "@/bindings";
 import { NoVaultError, runCommand, runEffect } from "@/lib/effect";
+import { htmlToMarkdown, markdownToHtml } from "@/lib/markdown";
 import { getValue, setValue } from "@/lib/tauri-store";
 import type { Note } from "@/types/note";
 
@@ -125,9 +126,12 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
         );
       }
 
-      const content = yield* runCommand(() =>
+      const rawContent = yield* runCommand(() =>
         commands.readFile(notePath, vaultPath)
       );
+
+      // Convert markdown to HTML for TipTap editor
+      const content = markdownToHtml(rawContent);
 
       const fileName = notePath.split("/").pop() ?? "Untitled";
       const title = fileName.replace(/\.md$/, "");
@@ -139,8 +143,8 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
         content,
         createdAt: new Date(),
         updatedAt: new Date(),
-        tags: extractTags(content),
-        links: extractWikiLinks(content),
+        tags: extractTags(rawContent),
+        links: extractWikiLinks(rawContent),
       };
 
       set({ activeNote: note, error: null });
@@ -162,7 +166,12 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
         );
       }
 
-      yield* runCommand(() => commands.writeFile(notePath, content, vaultPath));
+      // Convert HTML from TipTap back to markdown for storage
+      const markdownContent = htmlToMarkdown(content);
+
+      yield* runCommand(() =>
+        commands.writeFile(notePath, markdownContent, vaultPath)
+      );
 
       const { activeNote } = get();
       if (activeNote && activeNote.path === notePath) {
@@ -171,8 +180,8 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
             ...activeNote,
             content,
             updatedAt: new Date(),
-            tags: extractTags(content),
-            links: extractWikiLinks(content),
+            tags: extractTags(markdownContent),
+            links: extractWikiLinks(markdownContent),
           },
         });
       }

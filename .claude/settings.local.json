@@ -16,7 +16,9 @@
       "Bash(cargo search:*)",
       "Bash(cargo test:*)",
       "Bash(cargo build:*)",
-      "Bash(bun list:*)"
+      "Bash(bun list:*)",
+      "Bash(ls:*)",
+      "Bash(xargs cat:*)"
     ]
   }
 }

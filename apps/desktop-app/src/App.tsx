@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { commands } from "@/bindings";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { Toaster } from "@/components/ui/sonner";
 import { SettingsDialog, useSettingsStore } from "@/features/settings";
 import { VaultPicker } from "@/features/vault/components/VaultPicker";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
@@ -54,6 +55,19 @@ function AppContent() {
     };
   }, []);
 
+  // Keyboard shortcut: Command + , to open settings
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey && event.key === ",") {
+        event.preventDefault();
+        setSettingsOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   useEffect(() => {
     if (!_hasHydrated || hasAttemptedAutoOpen.current) return;
     hasAttemptedAutoOpen.current = true;
@@ -94,6 +108,7 @@ function App() {
   return (
     <ThemeProvider>
       <AppContent />
+      <Toaster />
     </ThemeProvider>
   );
 }
