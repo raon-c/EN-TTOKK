@@ -9,11 +9,33 @@ import { SettingsDialog, useSettingsStore } from "@/features/settings";
 import { VaultPicker } from "@/features/vault/components/VaultPicker";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { EditorLayout } from "@/layouts/EditorLayout";
+import { useBackend } from "@/hooks/useBackend";
 
-function LoadingScreen() {
+function LoadingScreen({ message = "Loading..." }: { message?: string }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-muted-foreground">Loading...</div>
+      <div className="text-muted-foreground">{message}</div>
+    </div>
+  );
+}
+
+function BackendErrorScreen({
+  error,
+  onRetry,
+}: {
+  error: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
+      <div className="text-destructive">{error}</div>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-md bg-primary px-4 py-2 text-primary-foreground hover:bg-primary/90"
+      >
+        Retry
+      </button>
     </div>
   );
 }
@@ -33,6 +55,7 @@ function AppContent() {
   const { path, _hasHydrated, openVault, closeVault, loadVault } =
     useVaultStore();
   const { loadSettings, _hasHydrated: settingsHydrated } = useSettingsStore();
+  const { status: backendStatus, error: backendError, retry: retryBackend } = useBackend();
   const [isValidating, setIsValidating] = useState(true);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -86,6 +109,19 @@ function AppContent() {
       })
       .finally(() => setIsValidating(false));
   }, [_hasHydrated, path, openVault, closeVault]);
+
+  if (backendStatus === "connecting") {
+    return <LoadingScreen message="Connecting to backend..." />;
+  }
+
+  if (backendStatus === "error") {
+    return (
+      <BackendErrorScreen
+        error={backendError ?? "Failed to connect to backend"}
+        onRetry={retryBackend}
+      />
+    );
+  }
 
   if (!_hasHydrated || !settingsHydrated || isValidating) {
     return <LoadingScreen />;

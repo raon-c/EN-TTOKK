@@ -7,7 +7,9 @@
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
     "check": "biome check .",
-    "check:fix": "biome check --write ."
+    "check:fix": "biome check --write .",
+    "backend:dev": "bun run --cwd apps/backend dev",
+    "backend:build": "bun run --cwd apps/backend build"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.11"

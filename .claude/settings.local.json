@@ -18,7 +18,9 @@
       "Bash(cargo build:*)",
       "Bash(bun list:*)",
       "Bash(ls:*)",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill -9)"
     ]
   }
 }

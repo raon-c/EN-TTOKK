@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:full": "concurrently -k -n backend,tauri -c blue,green \"bun run --cwd ../backend dev\" \"tauri dev\"",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "bun run build:sidecar && tauri build",
+    "build:sidecar": "bun run --cwd ../backend build"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -73,9 +77,11 @@
     "turndown": "^7.2.2",
     "vaul": "^1.1.2",
     "zod": "^4.3.5",
-    "zustand": "^5.0.10"
+    "zustand": "^5.0.10",
+    "@enttokk/api-types": "workspace:*"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "@tauri-apps/cli": "^2",
     "@types/marked": "^6.0.0",
     "@types/node": "^25.0.10",

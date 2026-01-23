@@ -1,6 +1,15 @@
-import { Monitor, Moon, Sun } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  Monitor,
+  Moon,
+  RefreshCw,
+  Sun,
+  XCircle,
+} from "lucide-react";
 import * as React from "react";
 
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -15,6 +24,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { DEFAULT_DAILY_NOTES_SETTINGS } from "@/features/daily-notes/types";
+import { useBackend } from "@/hooks/useBackend";
 
 import { useSettingsStore } from "../store/settingsStore";
 import type { Theme } from "../types";
@@ -46,6 +56,13 @@ function isValidFolderName(name: string): boolean {
 export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const { settings, setTheme, setDailyNotesFolder, setDailyNotesTemplate } =
     useSettingsStore();
+  const {
+    status: backendStatus,
+    error: backendError,
+    lastChecked,
+    checkHealth,
+  } = useBackend();
+  const [isChecking, setIsChecking] = React.useState(false);
   const [folderInput, setFolderInput] = React.useState(
     settings.dailyNotes?.folder ?? DEFAULT_DAILY_NOTES_SETTINGS.folder
   );
@@ -53,6 +70,12 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
   const [templateInput, setTemplateInput] = React.useState(
     settings.dailyNotes?.template ?? DEFAULT_DAILY_NOTES_SETTINGS.template
   );
+
+  const handleCheckHealth = async () => {
+    setIsChecking(true);
+    await checkHealth();
+    setIsChecking(false);
+  };
 
   React.useEffect(() => {
     setFolderInput(
@@ -133,6 +156,67 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </Label>
                 ))}
               </RadioGroup>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Backend Connection</Label>
+              <div className="rounded-lg border p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {backendStatus === "connected" && (
+                      <>
+                        <CheckCircle2 className="size-4 text-green-500" />
+                        <span className="text-sm text-green-600 dark:text-green-400">
+                          Connected
+                        </span>
+                      </>
+                    )}
+                    {backendStatus === "connecting" && (
+                      <>
+                        <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          Connecting...
+                        </span>
+                      </>
+                    )}
+                    {backendStatus === "error" && (
+                      <>
+                        <XCircle className="size-4 text-destructive" />
+                        <span className="text-sm text-destructive">
+                          Disconnected
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCheckHealth}
+                    disabled={isChecking}
+                    className="h-8"
+                  >
+                    {isChecking ? (
+                      <Loader2 className="size-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="size-3" />
+                    )}
+                    <span className="ml-1.5">Check</span>
+                  </Button>
+                </div>
+                {backendError && (
+                  <p className="text-xs text-destructive">{backendError}</p>
+                )}
+                {lastChecked && (
+                  <p className="text-xs text-muted-foreground">
+                    Last checked: {lastChecked.toLocaleTimeString()}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Backend server: http://localhost:31337
+                </p>
+              </div>
             </div>
 
             <Separator />

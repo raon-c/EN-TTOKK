@@ -1,14 +1,18 @@
 mod commands;
+mod sidecar;
 
 use commands::{
     create_file, create_folder, create_vault, delete_file, get_all_notes, open_vault,
     read_directory, read_file, rename_file, validate_vault_path, write_file,
 };
+#[cfg(any(debug_assertions, test))]
 use specta_typescript::{BigIntExportBehavior, Typescript};
 use tauri::{
     menu::{MenuBuilder, PredefinedMenuItem, SubmenuBuilder},
     Emitter,
 };
+#[cfg(not(debug_assertions))]
+use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 
 #[tauri::command]
@@ -54,8 +58,16 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
+        .plugin(tauri_plugin_shell::init())
+        .manage(sidecar::SidecarState::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
+            // Spawn backend sidecar only in release mode
+            // In dev mode, backend is started separately via `bun run dev:full`
+            #[cfg(not(debug_assertions))]
+            if let Err(e) = sidecar::spawn_backend(app) {
+                eprintln!("Failed to spawn backend sidecar: {}", e);
+            }
             builder.mount_events(app);
 
             // Create app menu with Settings item
@@ -103,6 +115,13 @@ pub fn run() {
             });
 
             Ok(())
+        })
+        .on_window_event(|_window, event| {
+            if let tauri::WindowEvent::Destroyed = event {
+                // Kill backend when main window is destroyed (release mode only)
+                #[cfg(not(debug_assertions))]
+                sidecar::kill_backend(_window.app_handle());
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
