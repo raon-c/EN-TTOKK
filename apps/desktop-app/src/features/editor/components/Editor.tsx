@@ -13,6 +13,7 @@ import { Tag, WikiLink } from "../extensions";
 interface EditorProps {
   content: string;
   onSave: (content: string) => void;
+  onDirtyChange?: (isDirty: boolean) => void;
   onLinkClick?: (target: string) => void;
   onTagClick?: (tag: string) => void;
   className?: string;
@@ -23,6 +24,7 @@ interface EditorProps {
 export function Editor({
   content,
   onSave,
+  onDirtyChange,
   onLinkClick,
   onTagClick,
   className,
@@ -33,6 +35,7 @@ export function Editor({
   const debouncedContent = useDebounce(localContent, autoSaveDelay);
   const isInitialMount = useRef(true);
   const lastSavedContent = useRef(content);
+  const lastDirtyState = useRef(false);
 
   const editor = useEditor({
     extensions: [
@@ -87,14 +90,17 @@ export function Editor({
     },
   });
 
-  // Sync editor content when prop changes (e.g., switching notes)
+  // Note: 노트 전환은 key={activeNote.path}로 컴포넌트가 리마운트되어 처리됨
+  // content prop 변경 시 sync하지 않음 (saveNote 후 롤백 방지)
+
+  // Notify parent when dirty state changes
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content);
-      setLocalContent(content);
-      lastSavedContent.current = content;
+    const isDirty = localContent !== lastSavedContent.current;
+    if (isDirty !== lastDirtyState.current) {
+      lastDirtyState.current = isDirty;
+      onDirtyChange?.(isDirty);
     }
-  }, [editor, content]);
+  }, [localContent, onDirtyChange]);
 
   // Auto-save after debounce delay
   useEffect(() => {
@@ -106,8 +112,10 @@ export function Editor({
     if (debouncedContent !== lastSavedContent.current) {
       onSave(debouncedContent);
       lastSavedContent.current = debouncedContent;
+      lastDirtyState.current = false;
+      onDirtyChange?.(false);
     }
-  }, [debouncedContent, onSave]);
+  }, [debouncedContent, onSave, onDirtyChange]);
 
   // Manual save with Cmd/Ctrl+S
   useEffect(() => {
@@ -119,6 +127,8 @@ export function Editor({
           if (currentContent !== lastSavedContent.current) {
             onSave(currentContent);
             lastSavedContent.current = currentContent;
+            lastDirtyState.current = false;
+            onDirtyChange?.(false);
           }
         }
       }
@@ -126,7 +136,7 @@ export function Editor({
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [editor, onSave]);
+  }, [editor, onSave, onDirtyChange]);
 
   if (!editor) {
     return null;

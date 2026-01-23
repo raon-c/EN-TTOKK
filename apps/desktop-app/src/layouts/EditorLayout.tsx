@@ -1,4 +1,5 @@
 import { FileTextIcon } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Sidebar,
   SidebarProvider,
@@ -11,6 +12,7 @@ import { useVaultStore } from "@/features/vault/store/vaultStore";
 
 export function EditorLayout() {
   const { activeNote, saveNote, openNoteByName } = useVaultStore();
+  const [isDirty, setIsDirty] = useState(false);
 
   const handleLinkClick = (target: string) => {
     openNoteByName(target);
@@ -19,6 +21,16 @@ export function EditorLayout() {
   const handleTagClick = (_tag: string) => {
     // TODO: Implement tag search/filter
   };
+
+  const handleDirtyChange = useCallback((dirty: boolean) => {
+    setIsDirty(dirty);
+  }, []);
+
+  // 노트 전환 시 dirty state 리셋
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeNote?.path 변경 시 리셋 의도
+  useEffect(() => {
+    setIsDirty(false);
+  }, [activeNote?.path]);
 
   return (
     <div className="relative flex flex-col size-full">
@@ -41,13 +53,24 @@ export function EditorLayout() {
               <div className="flex h-full flex-col">
                 <header className="flex h-12 shrink-0 items-center border-b px-4">
                   <FileTextIcon className="mr-2 size-4 text-muted-foreground" />
-                  <h1 className="text-sm font-medium">{activeNote.title}</h1>
+                  <h1 className="text-sm font-medium">
+                    {activeNote.title}
+                    {isDirty && (
+                      <span
+                        className="ml-1 text-muted-foreground"
+                        title="저장되지 않은 변경사항"
+                      >
+                        •
+                      </span>
+                    )}
+                  </h1>
                 </header>
                 <main className="flex-1 overflow-hidden">
                   <Editor
                     key={activeNote.path}
                     content={activeNote.content}
                     onSave={(content) => saveNote(activeNote.path, content)}
+                    onDirtyChange={handleDirtyChange}
                     onLinkClick={handleLinkClick}
                     onTagClick={handleTagClick}
                   />
