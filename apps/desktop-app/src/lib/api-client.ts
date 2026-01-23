@@ -94,9 +94,46 @@ export const apiClient = {
         onToolResult?: (result: string) => void;
         onDone?: (sessionId?: string) => void;
         onError?: (error: string) => void;
+        onChunk?: (chunk: FrontendStreamChunk) => void;
+        handlers?: Partial<
+          Record<
+            FrontendStreamChunk["type"],
+            (chunk: FrontendStreamChunk) => void
+          >
+        >;
       }
     ): { abort: () => void } {
       const abortController = new AbortController();
+
+      const defaultHandlers: Record<
+        FrontendStreamChunk["type"],
+        (chunk: FrontendStreamChunk) => void
+      > = {
+        start: (chunk) => callbacks.onStart?.(chunk.sessionId),
+        text_delta: (chunk) => {
+          if (chunk.text) callbacks.onTextDelta?.(chunk.text);
+        },
+        thinking: (chunk) => {
+          if (chunk.thinking) callbacks.onThinking?.(chunk.thinking);
+        },
+        tool_use: (chunk) => {
+          if (chunk.tool) callbacks.onToolUse?.(chunk.tool);
+        },
+        tool_result: (chunk) => {
+          if (chunk.toolResult) callbacks.onToolResult?.(chunk.toolResult);
+        },
+        done: (chunk) => callbacks.onDone?.(chunk.sessionId),
+        error: (chunk) => callbacks.onError?.(chunk.error ?? "Unknown error"),
+        ping: () => {},
+      };
+
+      const resolvedHandlers: Record<
+        FrontendStreamChunk["type"],
+        (chunk: FrontendStreamChunk) => void
+      > = {
+        ...defaultHandlers,
+        ...(callbacks.handlers ?? {}),
+      };
 
       (async () => {
         try {
@@ -138,34 +175,10 @@ export const apiClient = {
                   const chunk = JSON.parse(
                     line.slice(6)
                   ) as FrontendStreamChunk;
-                  switch (chunk.type) {
-                    case "start":
-                      callbacks.onStart?.(chunk.sessionId);
-                      break;
-                    case "text_delta":
-                      if (chunk.text) callbacks.onTextDelta?.(chunk.text);
-                      break;
-                    case "thinking":
-                      if (chunk.thinking)
-                        callbacks.onThinking?.(chunk.thinking);
-                      break;
-                    case "tool_use":
-                      if (chunk.tool) callbacks.onToolUse?.(chunk.tool);
-                      break;
-                    case "tool_result":
-                      if (chunk.toolResult)
-                        callbacks.onToolResult?.(chunk.toolResult);
-                      break;
-                    case "done":
-                      callbacks.onDone?.(chunk.sessionId);
-                      break;
-                    case "error":
-                      callbacks.onError?.(chunk.error ?? "Unknown error");
-                      break;
-                    case "ping":
-                      // Keepalive ping - ignore
-                      break;
-                  }
+                  callbacks.onChunk?.(chunk);
+                  const handler =
+                    resolvedHandlers[chunk.type as FrontendStreamChunk["type"]];
+                  handler?.(chunk);
                 } catch {
                   // Skip malformed JSON
                 }

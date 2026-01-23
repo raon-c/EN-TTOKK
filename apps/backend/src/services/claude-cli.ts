@@ -1,7 +1,9 @@
 import type {
   ClaudeStatusResponse,
+  ContentBlock,
   FrontendStreamChunk,
   StreamEvent,
+  StreamEventType,
 } from "@enttokk/api-types";
 
 // Active process tracking for cancellation
@@ -58,59 +60,112 @@ function parseStreamLine(line: string): StreamEvent | null {
   }
 }
 
+type ContentBlockType = ContentBlock["type"];
+
+type ContentBlockHandler<T extends ContentBlockType> = (
+  block: Extract<ContentBlock, { type: T }>
+) => FrontendStreamChunk[];
+
+type ContentBlockHandlerMap = {
+  [K in ContentBlockType]: ContentBlockHandler<K>;
+};
+
+export type ContentBlockHandlerOverrides = Partial<ContentBlockHandlerMap>;
+
+type StreamEventHandler<T extends StreamEventType> = (
+  event: Extract<StreamEvent, { type: T }>,
+  contentHandlers: ContentBlockHandlerMap
+) => FrontendStreamChunk[];
+
+type StreamEventHandlerMap = {
+  [K in StreamEventType]: StreamEventHandler<K>;
+};
+
+export type StreamEventHandlerOverrides = Partial<StreamEventHandlerMap>;
+
+const defaultContentBlockHandlers: ContentBlockHandlerMap = {
+  thinking: (block) => [
+    {
+      type: "thinking",
+      thinking: block.thinking,
+    },
+  ],
+  text: (block) => [
+    {
+      type: "text_delta",
+      text: block.text,
+    },
+  ],
+};
+
+const defaultStreamEventHandlers: StreamEventHandlerMap = {
+  system: (event) => [
+    {
+      type: "start",
+      sessionId: event.session_id,
+    },
+  ],
+  assistant: (event, contentHandlers) =>
+    event.message.content.flatMap((block) =>
+      handleContentBlock(
+        block as Extract<ContentBlock, { type: typeof block.type }>,
+        contentHandlers
+      )
+    ),
+  user: () => [],
+  result: (event) => [
+    {
+      type: "done",
+      sessionId: event.session_id,
+    },
+  ],
+  error: (event) => [
+    {
+      type: "error",
+      error: event.error.message,
+    },
+  ],
+};
+
+const buildContentHandlers = (
+  overrides?: ContentBlockHandlerOverrides
+): ContentBlockHandlerMap => ({
+  ...defaultContentBlockHandlers,
+  ...(overrides ?? {}),
+});
+
+const buildStreamEventHandlers = (
+  overrides?: StreamEventHandlerOverrides
+): StreamEventHandlerMap => ({
+  ...defaultStreamEventHandlers,
+  ...(overrides ?? {}),
+});
+
+const handleContentBlock = <T extends ContentBlockType>(
+  block: Extract<ContentBlock, { type: T }>,
+  contentHandlers: ContentBlockHandlerMap
+) => contentHandlers[block.type](block);
+
+const handleStreamEvent = <T extends StreamEventType>(
+  event: Extract<StreamEvent, { type: T }>,
+  eventHandlers: StreamEventHandlerMap,
+  contentHandlers: ContentBlockHandlerMap
+) => eventHandlers[event.type](event, contentHandlers);
+
 /**
  * Transform Claude CLI StreamEvent to simplified FrontendStreamChunk(s)
  * Returns an array because assistant events can contain multiple content blocks
  */
-function transformToFrontendChunks(event: StreamEvent): FrontendStreamChunk[] {
-  const chunks: FrontendStreamChunk[] = [];
-
-  switch (event.type) {
-    case "system":
-      // System init event - emit start with session ID
-      chunks.push({
-        type: "start",
-        sessionId: event.session_id,
-      });
-      break;
-
-    case "assistant":
-      // Assistant message contains content array with text and thinking blocks
-      for (const block of event.message.content) {
-        if (block.type === "thinking") {
-          chunks.push({
-            type: "thinking",
-            thinking: block.thinking,
-          });
-        } else if (block.type === "text") {
-          chunks.push({
-            type: "text_delta",
-            text: block.text,
-          });
-        }
-      }
-      break;
-
-    case "user":
-      // User message events - skip for frontend display
-      break;
-
-    case "result":
-      chunks.push({
-        type: "done",
-        sessionId: event.session_id,
-      });
-      break;
-
-    case "error":
-      chunks.push({
-        type: "error",
-        error: event.error.message,
-      });
-      break;
-  }
-
-  return chunks;
+function transformToFrontendChunks(
+  event: StreamEvent,
+  eventHandlers: StreamEventHandlerMap,
+  contentHandlers: ContentBlockHandlerMap
+): FrontendStreamChunk[] {
+  return handleStreamEvent(
+    event as Extract<StreamEvent, { type: typeof event.type }>,
+    eventHandlers,
+    contentHandlers
+  );
 }
 
 export interface StreamMessageOptions {
@@ -119,6 +174,8 @@ export interface StreamMessageOptions {
   systemPrompt?: string;
   sessionId?: string;
   requestId: string;
+  eventHandlers?: StreamEventHandlerOverrides;
+  contentHandlers?: ContentBlockHandlerOverrides;
 }
 
 /**
@@ -127,7 +184,16 @@ export interface StreamMessageOptions {
 export async function* streamMessage(
   options: StreamMessageOptions
 ): AsyncGenerator<FrontendStreamChunk> {
-  const { message, workingDirectory, sessionId, requestId } = options;
+  const {
+    message,
+    workingDirectory,
+    sessionId,
+    requestId,
+    eventHandlers,
+    contentHandlers,
+  } = options;
+  const resolvedContentHandlers = buildContentHandlers(contentHandlers);
+  const resolvedEventHandlers = buildStreamEventHandlers(eventHandlers);
 
   // Build command arguments
   // --verbose is required when using --output-format stream-json with -p (print mode)
@@ -171,7 +237,11 @@ export async function* streamMessage(
         if (buffer.trim()) {
           const event = parseStreamLine(buffer);
           if (event) {
-            const chunks = transformToFrontendChunks(event);
+            const chunks = transformToFrontendChunks(
+              event,
+              resolvedEventHandlers,
+              resolvedContentHandlers
+            );
             for (const chunk of chunks) {
               yield chunk;
             }
@@ -189,7 +259,11 @@ export async function* streamMessage(
       for (const line of lines) {
         const event = parseStreamLine(line);
         if (event) {
-          const chunks = transformToFrontendChunks(event);
+          const chunks = transformToFrontendChunks(
+            event,
+            resolvedEventHandlers,
+            resolvedContentHandlers
+          );
           for (const chunk of chunks) {
             yield chunk;
           }
