@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "./lib/logger";
 import chat from "./routes/chat";
+import googleCalendar from "./routes/google-calendar";
 
 const app = new Hono();
 
@@ -27,6 +28,8 @@ app.get("/healthz", (c) => {
 
 // Chat routes
 app.route("/chat", chat);
+// Google Calendar integration routes
+app.route("/", googleCalendar);
 
 // Get port from environment or use default
 const port = Number(process.env.PORT) || 31337;

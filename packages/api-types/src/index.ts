@@ -26,6 +26,15 @@ export type {
   UserStreamEvent,
 } from "./chat";
 
+export type {
+  GoogleCalendarAuthResult,
+  GoogleCalendarAuthStatus,
+  GoogleCalendarEvent,
+  GoogleCalendarEventDateTime,
+  GoogleCalendarEventsResponse,
+  GoogleCalendarTokenResponse,
+} from "./google-calendar";
+
 // Generic API response wrapper
 export interface ApiResponse<T> {
   success: boolean;

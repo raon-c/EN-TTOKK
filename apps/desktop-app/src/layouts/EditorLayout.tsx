@@ -1,4 +1,9 @@
-import { CalendarIcon, FileTextIcon, MessageSquare } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarIcon,
+  FileTextIcon,
+  MessageSquare,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,12 +14,13 @@ import {
 } from "@/components/ui/sidebar";
 import { ChatPanel } from "@/features/chat";
 import { DailyNotesCalendar } from "@/features/daily-notes";
+import { GoogleCalendarPanel } from "@/features/google-calendar";
 import { Editor } from "@/features/editor/components/Editor";
 import { FileExplorer } from "@/features/vault/components/FileExplorer";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { cn } from "@/lib/utils";
 
-type RightSidebarTab = "calendar" | "chat";
+type RightSidebarTab = "calendar" | "google-calendar" | "chat";
 
 export function EditorLayout() {
   const {
@@ -98,9 +104,9 @@ export function EditorLayout() {
           {/* Right SideBar */}
           <SidebarProvider>
             <Sidebar side="right">
-              {rightSidebarTab === "calendar" ? (
-                <DailyNotesCalendar />
-              ) : (
+              {rightSidebarTab === "calendar" && <DailyNotesCalendar />}
+              {rightSidebarTab === "google-calendar" && <GoogleCalendarPanel />}
+              {rightSidebarTab === "chat" && (
                 <ChatPanel workingDirectory={vaultPath ?? undefined} />
               )}
             </Sidebar>
@@ -151,6 +157,17 @@ function RightSidebarButtons({
           className={cn(activeTab === "calendar" && open && "bg-secondary")}
         >
           <CalendarIcon className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => handleTabClick("google-calendar")}
+          title="Google Calendar"
+          className={cn(
+            activeTab === "google-calendar" && open && "bg-secondary"
+          )}
+        >
+          <CalendarDays className="size-4" />
         </Button>
         <Button
           variant="ghost"

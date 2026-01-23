@@ -3,6 +3,9 @@ import type {
   ChatResponse,
   ClaudeStatusResponse,
   FrontendStreamChunk,
+  GoogleCalendarAuthResult,
+  GoogleCalendarEventsResponse,
+  GoogleCalendarTokenResponse,
   HealthResponse,
 } from "@enttokk/api-types";
 
@@ -207,6 +210,67 @@ export const apiClient = {
         body: JSON.stringify({ requestId }),
       });
       return response.json();
+    },
+  },
+
+  // Google Calendar integration methods
+  googleCalendar: {
+    async pollAuthResult(state: string): Promise<GoogleCalendarAuthResult> {
+      const response = await fetchWithTimeout(
+        `${BACKEND_URL}/oauth/google/result?state=${encodeURIComponent(state)}`
+      );
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error ?? `Auth poll failed: ${response.status}`);
+      }
+      return response.json();
+    },
+
+    async exchangeToken(params: {
+      grantType: "authorization_code" | "refresh_token";
+      code?: string;
+      codeVerifier?: string;
+      refreshToken?: string;
+      redirectUri: string;
+      clientId: string;
+      clientSecret?: string;
+    }): Promise<GoogleCalendarTokenResponse> {
+      const response = await fetchWithTimeout(
+        `${BACKEND_URL}/integrations/google/token`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+          timeout: 15000,
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error ?? `Token exchange failed: ${response.status}`);
+      }
+      return data;
+    },
+
+    async listEvents(params: {
+      accessToken: string;
+      calendarId?: string;
+      timeMin?: string;
+      timeMax?: string;
+      syncToken?: string;
+      pageToken?: string;
+      maxResults?: number;
+    }): Promise<{ status: number; data: GoogleCalendarEventsResponse }> {
+      const response = await fetchWithTimeout(
+        `${BACKEND_URL}/integrations/google/events`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+          timeout: 15000,
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      return { status: response.status, data };
     },
   },
 };

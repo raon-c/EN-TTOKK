@@ -35,3 +35,62 @@ export const cancelRequestSchema = z.object({
 
 export type ValidatedChatRequest = z.infer<typeof chatRequestSchema>;
 export type ValidatedCancelRequest = z.infer<typeof cancelRequestSchema>;
+
+/**
+ * Schema for Google OAuth token exchange/refresh
+ */
+export const googleTokenRequestSchema = z
+  .object({
+    grantType: z.enum(["authorization_code", "refresh_token"]),
+    code: z.string().optional(),
+    codeVerifier: z.string().optional(),
+    refreshToken: z.string().optional(),
+    redirectUri: z.string().url("Invalid redirect URI"),
+    clientId: z.string().min(1, "Client ID is required"),
+    clientSecret: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.grantType === "authorization_code") {
+      if (!data.code) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Authorization code is required",
+          path: ["code"],
+        });
+      }
+      if (!data.codeVerifier) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Code verifier is required",
+          path: ["codeVerifier"],
+        });
+      }
+    }
+    if (data.grantType === "refresh_token" && !data.refreshToken) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Refresh token is required",
+        path: ["refreshToken"],
+      });
+    }
+  });
+
+/**
+ * Schema for Google Calendar events list proxy
+ */
+export const googleEventsRequestSchema = z.object({
+  accessToken: z.string().min(1, "Access token is required"),
+  calendarId: z.string().optional(),
+  timeMin: z.string().optional(),
+  timeMax: z.string().optional(),
+  syncToken: z.string().optional(),
+  pageToken: z.string().optional(),
+  maxResults: z.number().int().min(1).max(250).optional(),
+});
+
+export type ValidatedGoogleTokenRequest = z.infer<
+  typeof googleTokenRequestSchema
+>;
+export type ValidatedGoogleEventsRequest = z.infer<
+  typeof googleEventsRequestSchema
+>;

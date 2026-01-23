@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { commands } from "@/bindings";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { GoogleCalendarSync } from "@/features/google-calendar";
 import { SettingsDialog, useSettingsStore } from "@/features/settings";
 import { VaultPicker } from "@/features/vault/components/VaultPicker";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
@@ -134,6 +135,7 @@ function AppContent() {
   return (
     <>
       <ThemeSynchronizer />
+      <GoogleCalendarSync />
       {!path || validationError ? (
         <VaultPicker initialError={validationError} />
       ) : (
