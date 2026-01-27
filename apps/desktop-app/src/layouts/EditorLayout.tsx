@@ -2,9 +2,9 @@ import {
   CalendarDays,
   CalendarIcon,
   FileTextIcon,
-  Link,
   MessageSquare,
 } from "lucide-react";
+import { JiraIcon } from "@/components/icons/JiraIcon";
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -188,7 +188,7 @@ function RightSidebarButtons({
           title="Jira"
           className={cn(activeTab === "jira" && open && "bg-secondary")}
         >
-          <Link className="size-4" />
+          <JiraIcon className="size-4" />
         </Button>
       </div>
     </div>
