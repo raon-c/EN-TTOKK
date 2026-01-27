@@ -7,6 +7,10 @@ import type {
   GoogleCalendarEventsResponse,
   GoogleCalendarTokenResponse,
   HealthResponse,
+  JiraIssuesRequest,
+  JiraIssuesResponse,
+  JiraTestRequest,
+  JiraTestResponse,
 } from "@enttokk/api-types";
 
 const BACKEND_PORT = 31337;
@@ -246,7 +250,9 @@ export const apiClient = {
       );
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error ?? `Token exchange failed: ${response.status}`);
+        throw new Error(
+          data.error ?? `Token exchange failed: ${response.status}`
+        );
       }
       return data;
     },
@@ -271,6 +277,42 @@ export const apiClient = {
       );
       const data = await response.json().catch(() => ({}));
       return { status: response.status, data };
+    },
+  },
+
+  // Jira integration methods
+  jira: {
+    async testConnection(params: JiraTestRequest): Promise<JiraTestResponse> {
+      const response = await fetchWithTimeout(
+        `${BACKEND_URL}/integrations/jira/test`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+          timeout: 15000,
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error ?? `Jira test failed: ${response.status}`);
+      }
+      return data;
+    },
+    async listIssues(params: JiraIssuesRequest): Promise<JiraIssuesResponse> {
+      const response = await fetchWithTimeout(
+        `${BACKEND_URL}/integrations/jira/issues`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(params),
+          timeout: 15000,
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error ?? `Jira issues failed: ${response.status}`);
+      }
+      return data;
     },
   },
 };

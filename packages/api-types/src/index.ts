@@ -35,6 +35,15 @@ export type {
   GoogleCalendarTokenResponse,
 } from "./google-calendar";
 
+export type {
+  JiraIssue,
+  JiraIssuesRequest,
+  JiraIssuesResponse,
+  JiraTestRequest,
+  JiraTestResponse,
+  JiraUserProfile,
+} from "./jira";
+
 // Generic API response wrapper
 export interface ApiResponse<T> {
   success: boolean;

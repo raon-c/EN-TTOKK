@@ -2,6 +2,7 @@ import {
   CalendarDays,
   CalendarIcon,
   FileTextIcon,
+  Link,
   MessageSquare,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -14,13 +15,14 @@ import {
 } from "@/components/ui/sidebar";
 import { ChatPanel } from "@/features/chat";
 import { DailyNotesCalendar } from "@/features/daily-notes";
-import { GoogleCalendarPanel } from "@/features/google-calendar";
 import { Editor } from "@/features/editor/components/Editor";
+import { GoogleCalendarPanel } from "@/features/google-calendar";
+import { JiraPanel } from "@/features/jira";
 import { FileExplorer } from "@/features/vault/components/FileExplorer";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { cn } from "@/lib/utils";
 
-type RightSidebarTab = "calendar" | "google-calendar" | "chat";
+type RightSidebarTab = "calendar" | "google-calendar" | "chat" | "jira";
 
 export function EditorLayout() {
   const {
@@ -109,6 +111,7 @@ export function EditorLayout() {
               {rightSidebarTab === "chat" && (
                 <ChatPanel workingDirectory={vaultPath ?? undefined} />
               )}
+              {rightSidebarTab === "jira" && <JiraPanel />}
             </Sidebar>
             <RightSidebarButtons
               activeTab={rightSidebarTab}
@@ -177,6 +180,15 @@ function RightSidebarButtons({
           className={cn(activeTab === "chat" && open && "bg-secondary")}
         >
           <MessageSquare className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => handleTabClick("jira")}
+          title="Jira"
+          className={cn(activeTab === "jira" && open && "bg-secondary")}
+        >
+          <Link className="size-4" />
         </Button>
       </div>
     </div>

@@ -23,6 +23,9 @@ tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-stronghold = "2"
+keyring = "2"
+rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 specta = { version = "=2.0.0-rc.22", features = ["derive"] }
@@ -35,3 +38,5 @@ notify = "6"
 regex = "1"
 tokio = { version = "1", features = ["fs"] }
 
+[profile.dev.package.scrypt]
+opt-level = 3

@@ -4,6 +4,7 @@ import { cors } from "hono/cors";
 import { logger } from "./lib/logger";
 import chat from "./routes/chat";
 import googleCalendar from "./routes/google-calendar";
+import jira from "./routes/jira";
 
 const app = new Hono();
 
@@ -30,12 +31,15 @@ app.get("/healthz", (c) => {
 app.route("/chat", chat);
 // Google Calendar integration routes
 app.route("/", googleCalendar);
+// Jira integration routes
+app.route("/", jira);
 
 // Get port from environment or use default
 const port = Number(process.env.PORT) || 31337;
 
 // Graceful shutdown handler
 const server = Bun.serve({
+  hostname: "127.0.0.1",
   port,
   fetch: app.fetch,
   // Disable idle timeout for SSE streaming (0 = no timeout)

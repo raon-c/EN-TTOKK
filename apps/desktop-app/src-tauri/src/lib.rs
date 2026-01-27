@@ -2,17 +2,16 @@ mod commands;
 mod sidecar;
 
 use commands::{
-    create_file, create_folder, create_vault, delete_file, get_all_notes, open_vault,
-    read_directory, read_file, rename_file, validate_vault_path, write_file,
+    create_file, create_folder, create_vault, delete_file, get_all_notes, get_jira_token,
+    open_vault, read_directory, read_file, remove_jira_token, rename_file, set_jira_token,
+    validate_vault_path, write_file,
 };
 #[cfg(any(debug_assertions, test))]
 use specta_typescript::{BigIntExportBehavior, Typescript};
 use tauri::{
     menu::{MenuBuilder, PredefinedMenuItem, SubmenuBuilder},
-    Emitter,
+    Emitter, Manager,
 };
-#[cfg(not(debug_assertions))]
-use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 
 #[tauri::command]
@@ -37,6 +36,9 @@ fn create_specta_builder() -> Builder {
         rename_file,
         create_folder,
         get_all_notes,
+        get_jira_token,
+        set_jira_token,
+        remove_jira_token,
     ])
 }
 
@@ -62,6 +64,14 @@ pub fn run() {
         .manage(sidecar::SidecarState::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
+            let salt_path = app
+                .path()
+                .app_local_data_dir()?
+                .join("stronghold_salt.txt");
+            app.handle().plugin(
+                tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build(),
+            )?;
+
             // Spawn backend sidecar only in release mode
             // In dev mode, backend is started separately via `bun run dev:full`
             #[cfg(not(debug_assertions))]

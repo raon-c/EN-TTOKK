@@ -94,3 +94,51 @@ export type ValidatedGoogleTokenRequest = z.infer<
 export type ValidatedGoogleEventsRequest = z.infer<
   typeof googleEventsRequestSchema
 >;
+
+/**
+ * Schema for Jira API token test
+ */
+const jiraBaseUrlSchema = z
+  .string()
+  .url("Invalid Jira base URL")
+  .refine((value) => value.startsWith("https://"), {
+    message: "Jira base URL must start with https://",
+  })
+  .refine(
+    (value) => {
+      try {
+        const url = new URL(value);
+        const hostname = url.hostname;
+        const validHost = hostname.endsWith(".atlassian.net");
+        const pathOk = url.pathname === "" || url.pathname === "/";
+        return (
+          validHost &&
+          pathOk &&
+          !url.username &&
+          !url.password &&
+          !url.port &&
+          !url.search &&
+          !url.hash
+        );
+      } catch {
+        return false;
+      }
+    },
+    {
+      message:
+        "Jira base URL must be a Jira Cloud site (e.g. https://your-domain.atlassian.net)",
+    }
+  );
+
+export const jiraTestRequestSchema = z.object({
+  baseUrl: jiraBaseUrlSchema,
+  email: z.string().email("Invalid email address"),
+  apiToken: z.string().min(1, "API token is required"),
+});
+
+export const jiraIssuesRequestSchema = jiraTestRequestSchema;
+
+export type ValidatedJiraTestRequest = z.infer<typeof jiraTestRequestSchema>;
+export type ValidatedJiraIssuesRequest = z.infer<
+  typeof jiraIssuesRequestSchema
+>;
