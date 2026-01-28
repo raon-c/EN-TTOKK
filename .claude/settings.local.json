@@ -22,7 +22,9 @@
       "Bash(lsof:*)",
       "Bash(xargs kill -9)",
       "Bash(timeout 10 claude:*)",
-      "Bash(claude:*)"
+      "Bash(claude:*)",
+      "WebSearch",
+      "WebFetch(domain:developer.atlassian.com)"
     ]
   }
 }

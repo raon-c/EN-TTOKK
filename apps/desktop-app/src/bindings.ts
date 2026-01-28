@@ -96,6 +96,14 @@ async getAllNotes(vaultPath: string) : Promise<Result<string[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getGithubActivity(date: string) : Promise<Result<GitHubActivityResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_github_activity", { date }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async getJiraToken() : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_jira_token") };
@@ -133,6 +141,9 @@ async removeJiraToken() : Promise<Result<null, string>> {
 /** user-defined types **/
 
 export type FileEntry = { name: string; path: string; is_dir: boolean; children: FileEntry[] | null }
+export type GitHubActivityItem = { kind: GitHubActivityKind; title: string; url: string; repo: string; timestamp: string; number: number | null; summary: string | null }
+export type GitHubActivityKind = "commit" | "pull_request" | "review" | "comment"
+export type GitHubActivityResponse = { login: string; date: string; items: GitHubActivityItem[] }
 export type VaultConfig = { path: string; name: string }
 
 /** tauri-specta globals **/

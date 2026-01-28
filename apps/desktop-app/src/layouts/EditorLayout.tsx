@@ -2,10 +2,11 @@ import {
   CalendarDays,
   CalendarIcon,
   FileTextIcon,
+  Github,
   MessageSquare,
 } from "lucide-react";
-import { JiraIcon } from "@/components/icons/JiraIcon";
 import { useCallback, useEffect, useState } from "react";
+import { JiraIcon } from "@/components/icons/JiraIcon";
 import { Button } from "@/components/ui/button";
 import {
   Sidebar,
@@ -16,13 +17,19 @@ import {
 import { ChatPanel } from "@/features/chat";
 import { DailyNotesCalendar } from "@/features/daily-notes";
 import { Editor } from "@/features/editor/components/Editor";
+import { GitHubPanel } from "@/features/github";
 import { GoogleCalendarPanel } from "@/features/google-calendar";
 import { JiraPanel } from "@/features/jira";
 import { FileExplorer } from "@/features/vault/components/FileExplorer";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { cn } from "@/lib/utils";
 
-type RightSidebarTab = "calendar" | "google-calendar" | "chat" | "jira";
+type RightSidebarTab =
+  | "calendar"
+  | "google-calendar"
+  | "chat"
+  | "jira"
+  | "github";
 
 export function EditorLayout() {
   const {
@@ -112,6 +119,7 @@ export function EditorLayout() {
                 <ChatPanel workingDirectory={vaultPath ?? undefined} />
               )}
               {rightSidebarTab === "jira" && <JiraPanel />}
+              {rightSidebarTab === "github" && <GitHubPanel />}
             </Sidebar>
             <RightSidebarButtons
               activeTab={rightSidebarTab}
@@ -189,6 +197,15 @@ function RightSidebarButtons({
           className={cn(activeTab === "jira" && open && "bg-secondary")}
         >
           <JiraIcon className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => handleTabClick("github")}
+          title="GitHub"
+          className={cn(activeTab === "github" && open && "bg-secondary")}
+        >
+          <Github className="size-4" />
         </Button>
       </div>
     </div>
