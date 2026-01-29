@@ -1,4 +1,4 @@
-import { AlertCircle, Plus, Send, Square } from "lucide-react";
+import { AlertCircle, ClipboardList, Plus, Send, Square } from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Loader } from "@/components/ai-elements/loader";
 import {
@@ -35,6 +35,7 @@ export function ChatPanel({ workingDirectory, className }: ChatPanelProps) {
     isCheckingStatus,
     error,
     sendMessage,
+    sendDailySummary,
     cancelStreaming,
     newConversation,
     clearError,
@@ -75,6 +76,8 @@ export function ChatPanel({ workingDirectory, className }: ChatPanelProps) {
 
   const isUnavailable = claudeStatus === "unavailable";
   const isLoading = isCheckingStatus || claudeStatus === "checking";
+  const isDailySummaryDisabled =
+    isUnavailable || isLoading || streamingState.isStreaming;
 
   return (
     <div
@@ -92,6 +95,15 @@ export function ChatPanel({ workingDirectory, className }: ChatPanelProps) {
               <span className="text-xs text-destructive">CLI unavailable</span>
             )}
           </div>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => sendDailySummary(workingDirectory)}
+            disabled={isDailySummaryDisabled}
+            title="Daily Summary"
+          >
+            <ClipboardList className="size-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"
