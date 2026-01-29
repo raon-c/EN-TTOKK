@@ -24,7 +24,10 @@
       "Bash(timeout 10 claude:*)",
       "Bash(claude:*)",
       "WebSearch",
-      "WebFetch(domain:developer.atlassian.com)"
+      "WebFetch(domain:developer.atlassian.com)",
+      "Bash(openspec new:*)",
+      "Bash(openspec status:*)",
+      "Bash(openspec instructions proposal:*)"
     ]
   }
 }

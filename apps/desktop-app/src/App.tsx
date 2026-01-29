@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { commands } from "@/bindings";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
+import { useDailyNotesStore } from "@/features/daily-notes/store/dailyNotesStore";
 import { GoogleCalendarSync } from "@/features/google-calendar";
 import { SettingsDialog, useSettingsStore } from "@/features/settings";
 import { VaultPicker } from "@/features/vault/components/VaultPicker";
@@ -55,7 +56,9 @@ function ThemeSynchronizer() {
 function AppContent() {
   const { path, _hasHydrated, openVault, closeVault, loadVault } =
     useVaultStore();
-  const { loadSettings, _hasHydrated: settingsHydrated } = useSettingsStore();
+  const { loadSettings, _hasHydrated: settingsHydrated, settings } =
+    useSettingsStore();
+  const { openOrCreateDailyNote } = useDailyNotesStore();
   const {
     status: backendStatus,
     error: backendError,
@@ -108,12 +111,20 @@ function AppContent() {
     commands
       .validateVaultPath(path)
       .then(() => openVault(path))
+      .then(() => {
+        const currentActiveNote = useVaultStore.getState().activeNote;
+        if (currentActiveNote === null) {
+          openOrCreateDailyNote(new Date(), settings.dailyNotes).catch(
+            () => {}
+          );
+        }
+      })
       .catch(() => {
         setValidationError("이전 vault를 찾을 수 없습니다");
         closeVault();
       })
       .finally(() => setIsValidating(false));
-  }, [_hasHydrated, path, openVault, closeVault]);
+  }, [_hasHydrated, path, openVault, closeVault, openOrCreateDailyNote, settings.dailyNotes]);
 
   if (backendStatus === "connecting") {
     return <LoadingScreen message="Connecting to backend..." />;
