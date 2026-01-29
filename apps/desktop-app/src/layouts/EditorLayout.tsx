@@ -154,6 +154,13 @@ function RightSidebarButtons({
     }
   };
 
+  const baseButtonClassName =
+    "text-sidebar-foreground/70 hover:bg-sidebar-primary/5 hover:text-sidebar-primary/80";
+  const activeButtonClassName =
+    "bg-sidebar-primary/10 text-sidebar-primary ring-1 ring-sidebar-primary/30 hover:bg-sidebar-primary/10 hover:text-sidebar-primary";
+  const getButtonClassName = (tab: RightSidebarTab) =>
+    cn(open && activeTab === tab ? activeButtonClassName : baseButtonClassName);
+
   return (
     <div className="h-full w-11 z-50 bg-accent border-l flex flex-col">
       <div className="flex h-11 items-center w-full justify-center">
@@ -165,7 +172,7 @@ function RightSidebarButtons({
           size="icon-sm"
           onClick={() => handleTabClick("calendar")}
           title="Calendar"
-          className={cn(activeTab === "calendar" && open && "bg-secondary")}
+          className={getButtonClassName("calendar")}
         >
           <CalendarIcon className="size-4" />
         </Button>
@@ -174,9 +181,7 @@ function RightSidebarButtons({
           size="icon-sm"
           onClick={() => handleTabClick("google-calendar")}
           title="Google Calendar"
-          className={cn(
-            activeTab === "google-calendar" && open && "bg-secondary"
-          )}
+          className={getButtonClassName("google-calendar")}
         >
           <CalendarDays className="size-4" />
         </Button>
@@ -185,7 +190,7 @@ function RightSidebarButtons({
           size="icon-sm"
           onClick={() => handleTabClick("chat")}
           title="Chat with Claude"
-          className={cn(activeTab === "chat" && open && "bg-secondary")}
+          className={getButtonClassName("chat")}
         >
           <MessageSquare className="size-4" />
         </Button>
@@ -194,7 +199,7 @@ function RightSidebarButtons({
           size="icon-sm"
           onClick={() => handleTabClick("jira")}
           title="Jira"
-          className={cn(activeTab === "jira" && open && "bg-secondary")}
+          className={getButtonClassName("jira")}
         >
           <JiraIcon className="size-4" />
         </Button>
@@ -203,7 +208,7 @@ function RightSidebarButtons({
           size="icon-sm"
           onClick={() => handleTabClick("github")}
           title="GitHub"
-          className={cn(activeTab === "github" && open && "bg-secondary")}
+          className={getButtonClassName("github")}
         >
           <Github className="size-4" />
         </Button>
