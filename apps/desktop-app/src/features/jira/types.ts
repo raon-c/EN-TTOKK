@@ -6,5 +6,5 @@ export interface JiraStoredState {
   baseUrl: string;
   email: string;
   profile?: JiraUserProfile;
-  lastCheckedAt?: number;
+  lastCheckedAt?: string;
 }

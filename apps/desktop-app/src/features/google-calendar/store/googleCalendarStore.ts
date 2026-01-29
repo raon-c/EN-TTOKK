@@ -58,7 +58,7 @@ interface GoogleCalendarStore {
   tokens: GoogleCalendarTokens | null;
   calendarId: string;
   syncToken: string | null;
-  lastSyncAt: number | null;
+  lastSyncAt: string | null;
   events: GoogleCalendarEvent[];
   selectedDate: Date | null;
   selectedEvents: GoogleCalendarEvent[];
@@ -86,6 +86,28 @@ const buildAuthUrl = async (state: string, codeChallenge: string) => {
   return `${GOOGLE_AUTH_BASE_URL}?${params.toString()}`;
 };
 
+const normalizeTimestamps = (
+  stored: GoogleCalendarStoredState
+): GoogleCalendarStoredState => {
+  const normalized = { ...stored };
+
+  if (normalized.tokens?.expiresAt) {
+    const expiresAt = normalized.tokens.expiresAt;
+    if (typeof expiresAt === "number") {
+      normalized.tokens = {
+        ...normalized.tokens,
+        expiresAt: new Date(expiresAt).toISOString(),
+      };
+    }
+  }
+
+  if (normalized.lastSyncAt && typeof normalized.lastSyncAt === "number") {
+    normalized.lastSyncAt = new Date(normalized.lastSyncAt).toISOString();
+  }
+
+  return normalized;
+};
+
 const persistState = async (state: GoogleCalendarStore) => {
   const stored: GoogleCalendarStoredState = {
     tokens: state.tokens,
@@ -100,12 +122,13 @@ const mapTokenResponse = (
   response: GoogleCalendarTokenResponse,
   previous: GoogleCalendarTokens | null
 ): GoogleCalendarTokens => {
-  const expiresAt =
+  const expiresAtMs =
     Date.now() + response.expires_in * 1000 - TOKEN_EXPIRY_SAFETY_MS;
+  const finalExpiresAtMs = Math.max(Date.now(), expiresAtMs);
   return {
     accessToken: response.access_token,
     refreshToken: response.refresh_token ?? previous?.refreshToken,
-    expiresAt: Math.max(Date.now(), expiresAt),
+    expiresAt: new Date(finalExpiresAtMs).toISOString(),
     scope: response.scope,
     tokenType: response.token_type,
   };
@@ -120,7 +143,8 @@ const ensureAccessToken = async (
     throw new Error("Missing tokens");
   }
 
-  const isExpired = current.expiresAt - Date.now() < TOKEN_EXPIRY_SAFETY_MS;
+  const expiresAtMs = Date.parse(current.expiresAt);
+  const isExpired = expiresAtMs - Date.now() < TOKEN_EXPIRY_SAFETY_MS;
   if (!isExpired) return current.accessToken;
 
   if (!current.refreshToken) {
@@ -265,11 +289,12 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
     loadFromStore: async () => {
       const stored = await getValue<GoogleCalendarStoredState>(STORAGE_KEY);
       if (stored?.tokens?.accessToken) {
+        const normalized = normalizeTimestamps(stored);
         set({
-          tokens: stored.tokens,
-          calendarId: stored.calendarId ?? DEFAULT_CALENDAR_ID,
-          syncToken: stored.syncToken ?? null,
-          lastSyncAt: stored.lastSyncAt ?? null,
+          tokens: normalized.tokens,
+          calendarId: normalized.calendarId ?? DEFAULT_CALENDAR_ID,
+          syncToken: normalized.syncToken ?? null,
+          lastSyncAt: normalized.lastSyncAt ?? null,
           status: "connected",
           error: null,
         });
@@ -388,7 +413,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
 
         set({
           status: "connected",
-          lastSyncAt: Date.now(),
+          lastSyncAt: new Date().toISOString(),
         });
         await persistState(get());
       } catch (error) {

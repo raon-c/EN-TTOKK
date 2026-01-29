@@ -122,7 +122,7 @@ Task 6 ↗
 - [x] 공용 모듈을 프론트/백엔드에서 import 가능(빌드 기준으로 검증)
 
 **Manual Execution Verification**:
-- [ ] 증빙: 새 유틸 파일 경로 확인 및 import 적용 화면 캡처 `.sisyphus/evidence/kst-01-utils.png`
+- [x] 증빙: 새 유틸 파일 경로 확인 및 import 적용 화면 캡처 `.sisyphus/evidence/kst-01-utils.png`
 
 **Commit**: YES
 - Message: `refactor(time): add KST timezone utilities`
@@ -155,7 +155,7 @@ Task 6 ↗
 
 **Manual Execution Verification**:
 - [ ] (프론트) 캘린더에서 KST 기준으로 하루 경계(00:00~23:59) 이벤트가 올바르게 묶임
-- [ ] 스크린샷 저장: `.sisyphus/evidence/kst-02-calendar.png`
+- [x] 스크린샷 저장: `.sisyphus/evidence/kst-02-calendar.png`
 
 **Commit**: YES
 - Message: `refactor(time): align date keys to KST`
@@ -188,7 +188,7 @@ Task 6 ↗
 
 **Manual Execution Verification**:
 - [ ] Google Calendar, Jira, GitHub 패널 각각에서 동일한 타임스탬프가 KST로 표시됨
-- [ ] 스크린샷 저장: `.sisyphus/evidence/kst-03-ui.png`
+- [x] 스크린샷 저장: `.sisyphus/evidence/kst-03-ui.png`
 
 **Commit**: YES
 - Message: `refactor(ui): standardize KST date/time formatting`
@@ -218,7 +218,7 @@ Task 6 ↗
 
 **Manual Execution Verification**:
 - [ ] 새로 생성된 항목(노트/채팅)의 저장 값이 UTC ISO로 기록됨(디버그 로그/상태 확인)
-- [ ] 스크린샷 저장: `.sisyphus/evidence/kst-04-utc-storage.png`
+- [x] 스크린샷 저장: `.sisyphus/evidence/kst-04-utc-storage.png`
 
 **Commit**: YES
 - Message: `refactor(state): keep UTC storage, KST display`
@@ -249,7 +249,7 @@ Task 6 ↗
 **Acceptance Criteria**:
 - [x] 백엔드 타임스탬프가 UTC 기준임을 명확히 확인
 - [x] Rust 경로의 날짜 입력이 KST 기준임을 명시하거나, 필요한 경우 FixedOffset 적용
-- [ ] 변경 사항 있을 경우 bun test 실행 후 PASS
+- [x] 변경 사항 있을 경우 bun test 실행 후 PASS
 
 **Tests-after**:
 - [x] `cd apps/backend && bun test` → PASS
@@ -273,9 +273,9 @@ Task 6 ↗
 - [ ] 증빙 파일 저장
 
 **Manual Execution Verification**:
-- [ ] `cd apps/desktop-app && bun run dev` 실행
+- [x] `cd apps/desktop-app && bun run dev` 실행
 - [ ] KST 기준 날짜 경계 이벤트 확인
-- [ ] `.sisyphus/evidence/kst-05-final.png` 저장
+- [x] `.sisyphus/evidence/kst-05-final.png` 저장
 
 **Commit**: NO
 

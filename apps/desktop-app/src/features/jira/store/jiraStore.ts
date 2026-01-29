@@ -26,7 +26,7 @@ type JiraStoreState = {
   email: string;
   apiToken: string;
   profile: JiraUserProfile | null;
-  lastCheckedAt: number | null;
+  lastCheckedAt: string | null;
   issues: JiraIssue[];
   isLoadingIssues: boolean;
   hasStoredToken: boolean;
@@ -43,6 +43,19 @@ type JiraStoreState = {
 };
 
 const normalizeUrl = (value: string) => value.trim().replace(/\/$/, "");
+
+const normalizeTimestamps = (stored: JiraStoredState): JiraStoredState => {
+  const normalized = { ...stored };
+
+  if (
+    normalized.lastCheckedAt &&
+    typeof normalized.lastCheckedAt === "number"
+  ) {
+    normalized.lastCheckedAt = new Date(normalized.lastCheckedAt).toISOString();
+  }
+
+  return normalized;
+};
 
 const buildStoredState = (state: JiraStoreState): JiraStoredState => ({
   baseUrl: normalizeUrl(state.baseUrl),
@@ -95,12 +108,13 @@ export const useJiraStore = create<JiraStoreState>((set, get) => ({
             : "Unable to access secure storage",
       });
     }
+    const normalized = normalizeTimestamps(stored);
     set({
-      baseUrl: stored.baseUrl ?? "",
-      email: stored.email ?? "",
+      baseUrl: normalized.baseUrl ?? "",
+      email: normalized.email ?? "",
       apiToken: "",
-      profile: stored.profile ?? null,
-      lastCheckedAt: stored.lastCheckedAt ?? null,
+      profile: normalized.profile ?? null,
+      lastCheckedAt: normalized.lastCheckedAt ?? null,
       hasStoredToken: Boolean(token?.trim()),
       status: token ? "connected" : "disconnected",
     });
@@ -151,7 +165,7 @@ export const useJiraStore = create<JiraStoreState>((set, get) => ({
       set({
         status: "connected",
         profile: response.profile ?? null,
-        lastCheckedAt: Date.now(),
+        lastCheckedAt: new Date().toISOString(),
         error: null,
       });
       await get().save();
