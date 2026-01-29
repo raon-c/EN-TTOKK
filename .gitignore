@@ -57,3 +57,5 @@ lerna-debug.log*
 .cache/
 
 **/binaries/
+# Git worktrees
+.worktrees/
