@@ -31,6 +31,19 @@ type RightSidebarTab =
   | "jira"
   | "github";
 
+const isEditableTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
+    target.tagName === "SELECT"
+  );
+};
+
 export function EditorLayout() {
   const {
     activeNote,
@@ -65,7 +78,7 @@ export function EditorLayout() {
       <div className="w-full flex overflow-hidden flex-1">
         <div className="flex flex-1 h-full overflow-hidden">
           {/* Left SideBar */}
-          <SidebarProvider>
+          <SidebarProvider keyboardShortcut="b">
             <div className="h-full w-11 z-50 bg-accent border-r">
               <div className="flex h-11 items-center w-full justify-center">
                 <SidebarTrigger />
@@ -111,7 +124,7 @@ export function EditorLayout() {
           </div>
 
           {/* Right SideBar */}
-          <SidebarProvider>
+          <SidebarProvider keyboardShortcut="l">
             <Sidebar side="right">
               {rightSidebarTab === "calendar" && <DailyNotesCalendar />}
               {rightSidebarTab === "google-calendar" && <GoogleCalendarPanel />}
@@ -153,6 +166,27 @@ function RightSidebarButtons({
       setOpen(true);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        isEditableTarget(event.target)
+      ) {
+        return;
+      }
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
+        event.preventDefault();
+        onTabChange("chat");
+        setOpen(true);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onTabChange, setOpen]);
 
   const baseButtonClassName =
     "text-sidebar-foreground/70 hover:bg-sidebar-primary/5 hover:text-sidebar-primary/80";
