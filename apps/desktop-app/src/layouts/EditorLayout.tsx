@@ -6,11 +6,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { Group } from "react-resizable-panels";
 import { JiraIcon } from "@/components/icons/JiraIcon";
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
-import { ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   Sidebar,
   SidebarProvider,
