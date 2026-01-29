@@ -1,4 +1,12 @@
-import { AlertCircle, ClipboardList, Plus, Send, Square } from "lucide-react";
+import {
+  AlertCircle,
+  ClipboardList,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
+  Send,
+  Square,
+} from "lucide-react";
 import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 import { Loader } from "@/components/ai-elements/loader";
 import {
@@ -18,6 +26,7 @@ import {
   ToolInput,
 } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { SidebarHeader } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { useChat } from "../hooks/useChat";
@@ -26,12 +35,16 @@ interface ChatPanelProps {
   workingDirectory?: string;
   className?: string;
   isVisible?: boolean;
+  isExpanded?: boolean;
+  onToggleExpanded?: () => void;
 }
 
 export function ChatPanel({
   workingDirectory,
   className,
   isVisible,
+  isExpanded,
+  onToggleExpanded,
 }: ChatPanelProps) {
   const {
     messages,
@@ -99,7 +112,7 @@ export function ChatPanel({
   return (
     <div
       className={cn(
-        "relative flex flex-col h-full bg-background overflow-hidden",
+        "relative flex flex-col h-full bg-background overflow-hidden w-full",
         className
       )}
     >
@@ -112,23 +125,38 @@ export function ChatPanel({
               <span className="text-xs text-destructive">CLI unavailable</span>
             )}
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => sendDailySummary(workingDirectory)}
-            disabled={isDailySummaryDisabled}
-            title="Daily Summary"
-          >
-            <ClipboardList className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={newConversation}
-            title="New conversation"
-          >
-            <Plus className="size-4" />
-          </Button>
+          <ButtonGroup>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Expand Panel"
+              onClick={onToggleExpanded}
+            >
+              {isExpanded ? (
+                <PanelLeftOpen className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => sendDailySummary(workingDirectory)}
+              disabled={isDailySummaryDisabled}
+              title="Daily Summary"
+            >
+              <ClipboardList className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={newConversation}
+              title="New conversation"
+            >
+              <Plus className="size-4" />
+            </Button>
+          </ButtonGroup>
         </div>
       </SidebarHeader>
 

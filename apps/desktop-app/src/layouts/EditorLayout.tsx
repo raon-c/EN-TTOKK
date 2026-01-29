@@ -6,8 +6,11 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { Group } from "react-resizable-panels";
 import { JiraIcon } from "@/components/icons/JiraIcon";
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { ResizablePanelGroup } from "@/components/ui/resizable";
 import {
   Sidebar,
   SidebarProvider,
@@ -88,7 +91,6 @@ export function EditorLayout() {
               <FileExplorer />
             </Sidebar>
           </SidebarProvider>
-
           {/* Main Content */}
           <div className="size-full">
             {activeNote ? (
@@ -122,7 +124,6 @@ export function EditorLayout() {
               <EmptyState />
             )}
           </div>
-
           {/* Right SideBar */}
           <SidebarProvider keyboardShortcut="l">
             <RightSidebarContent
@@ -149,16 +150,29 @@ function RightSidebarContent({
   onTabChange,
 }: RightSidebarContentProps) {
   const { open } = useSidebar();
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const toggleExpanded = () => {
+    setIsExpanded((prev) => !prev);
+  };
+
+  useEffect(() => {
+    if (rightSidebarTab !== "chat") {
+      setIsExpanded(false);
+    }
+  }, [rightSidebarTab]);
 
   return (
     <>
-      <Sidebar side="right">
+      <Sidebar side="right" className={cn({ "w-1/2": isExpanded })}>
         {rightSidebarTab === "calendar" && <DailyNotesCalendar />}
         {rightSidebarTab === "google-calendar" && <GoogleCalendarPanel />}
         {rightSidebarTab === "chat" && (
           <ChatPanel
             workingDirectory={vaultPath ?? undefined}
             isVisible={rightSidebarTab === "chat" && open}
+            isExpanded={isExpanded}
+            onToggleExpanded={toggleExpanded}
           />
         )}
         {rightSidebarTab === "jira" && <JiraPanel />}
