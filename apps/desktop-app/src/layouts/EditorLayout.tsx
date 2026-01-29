@@ -125,23 +125,47 @@ export function EditorLayout() {
 
           {/* Right SideBar */}
           <SidebarProvider keyboardShortcut="l">
-            <Sidebar side="right">
-              {rightSidebarTab === "calendar" && <DailyNotesCalendar />}
-              {rightSidebarTab === "google-calendar" && <GoogleCalendarPanel />}
-              {rightSidebarTab === "chat" && (
-                <ChatPanel workingDirectory={vaultPath ?? undefined} />
-              )}
-              {rightSidebarTab === "jira" && <JiraPanel />}
-              {rightSidebarTab === "github" && <GitHubPanel />}
-            </Sidebar>
-            <RightSidebarButtons
-              activeTab={rightSidebarTab}
+            <RightSidebarContent
+              rightSidebarTab={rightSidebarTab}
+              vaultPath={vaultPath}
               onTabChange={setRightSidebarTab}
             />
           </SidebarProvider>
         </div>
       </div>
     </div>
+  );
+}
+
+interface RightSidebarContentProps {
+  rightSidebarTab: RightSidebarTab;
+  vaultPath: string | null;
+  onTabChange: (tab: RightSidebarTab) => void;
+}
+
+function RightSidebarContent({
+  rightSidebarTab,
+  vaultPath,
+  onTabChange,
+}: RightSidebarContentProps) {
+  const { open } = useSidebar();
+
+  return (
+    <>
+      <Sidebar side="right">
+        {rightSidebarTab === "calendar" && <DailyNotesCalendar />}
+        {rightSidebarTab === "google-calendar" && <GoogleCalendarPanel />}
+        {rightSidebarTab === "chat" && (
+          <ChatPanel
+            workingDirectory={vaultPath ?? undefined}
+            isVisible={rightSidebarTab === "chat" && open}
+          />
+        )}
+        {rightSidebarTab === "jira" && <JiraPanel />}
+        {rightSidebarTab === "github" && <GitHubPanel />}
+      </Sidebar>
+      <RightSidebarButtons activeTab={rightSidebarTab} onTabChange={onTabChange} />
+    </>
   );
 }
 

@@ -25,9 +25,14 @@ import { useChat } from "../hooks/useChat";
 interface ChatPanelProps {
   workingDirectory?: string;
   className?: string;
+  isVisible?: boolean;
 }
 
-export function ChatPanel({ workingDirectory, className }: ChatPanelProps) {
+export function ChatPanel({
+  workingDirectory,
+  className,
+  isVisible,
+}: ChatPanelProps) {
   const {
     messages,
     streamingState,
@@ -60,6 +65,18 @@ export function ChatPanel({ workingDirectory, className }: ChatPanelProps) {
       textarea.style.height = `${Math.min(textarea.scrollHeight, 200)}px`;
     }
   }, [input]);
+
+  // Auto-focus textarea when panel becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      requestAnimationFrame(() => {
+        const textarea = textareaRef.current;
+        if (textarea && !textarea.disabled) {
+          textarea.focus();
+        }
+      });
+    }
+  }, [isVisible]);
 
   const handleSubmit = () => {
     if (!input.trim() || streamingState.isStreaming) return;
