@@ -164,7 +164,10 @@ function RightSidebarContent({
         {rightSidebarTab === "jira" && <JiraPanel />}
         {rightSidebarTab === "github" && <GitHubPanel />}
       </Sidebar>
-      <RightSidebarButtons activeTab={rightSidebarTab} onTabChange={onTabChange} />
+      <RightSidebarButtons
+        activeTab={rightSidebarTab}
+        onTabChange={onTabChange}
+      />
     </>
   );
 }
@@ -237,20 +240,20 @@ function RightSidebarButtons({
         <Button
           variant="ghost"
           size="icon-sm"
-          onClick={() => handleTabClick("google-calendar")}
-          title="Google Calendar"
-          className={getButtonClassName("google-calendar")}
-        >
-          <CalendarDays className="size-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
           onClick={() => handleTabClick("chat")}
           title="Chat with Claude"
           className={getButtonClassName("chat")}
         >
           <MessageSquare className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => handleTabClick("google-calendar")}
+          title="Google Calendar"
+          className={getButtonClassName("google-calendar")}
+        >
+          <CalendarDays className="size-4" />
         </Button>
         <Button
           variant="ghost"
