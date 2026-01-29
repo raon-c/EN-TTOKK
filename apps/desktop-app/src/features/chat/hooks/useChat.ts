@@ -1,6 +1,7 @@
 import type { ChatMessage } from "@enttokk/api-types";
 import { useCallback, useEffect } from "react";
 import { apiClient } from "@/lib/api-client";
+import { buildDailySummaryPrompt } from "@/features/daily-summary/buildDailySummaryPrompt";
 import { useChatStore } from "../store/chatStore";
 
 export function useChat() {
@@ -53,10 +54,13 @@ export function useChat() {
     checkStatus();
   }, [setClaudeStatus, setIsCheckingStatus, setError]);
 
-  // Send a message with streaming
-  const sendMessage = useCallback(
-    async (content: string, workingDirectory?: string) => {
-      if (!content.trim()) return;
+  const sendStreamingMessage = useCallback(
+    async (params: {
+      requestMessage: string;
+      displayMessage?: string;
+      workingDirectory?: string;
+    }) => {
+      if (!params.requestMessage.trim()) return;
       if (claudeStatus !== "available") {
         setError("Claude CLI is not available");
         return;
@@ -75,7 +79,7 @@ export function useChat() {
       const userMessage: ChatMessage = {
         id: crypto.randomUUID(),
         role: "user",
-        content: content.trim(),
+        content: (params.displayMessage ?? params.requestMessage).trim(),
         timestamp: new Date().toISOString(),
       };
       addMessage(conversationId, userMessage);
@@ -83,8 +87,8 @@ export function useChat() {
       // Start streaming
       const { abort } = apiClient.chat.streamMessage(
         {
-          message: content.trim(),
-          workingDirectory,
+          message: params.requestMessage.trim(),
+          workingDirectory: params.workingDirectory,
           conversationId,
           sessionId: currentSessionId ?? undefined,
         },
@@ -139,6 +143,38 @@ export function useChat() {
     ]
   );
 
+  // Send a message with streaming
+  const sendMessage = useCallback(
+    async (content: string, workingDirectory?: string) => {
+      await sendStreamingMessage({
+        requestMessage: content,
+        displayMessage: content,
+        workingDirectory,
+      });
+    },
+    [sendStreamingMessage]
+  );
+
+  const sendDailySummary = useCallback(
+    async (workingDirectory?: string) => {
+      try {
+        const request = await buildDailySummaryPrompt();
+        await sendStreamingMessage({
+          requestMessage: request.requestMessage,
+          displayMessage: request.displayMessage,
+          workingDirectory,
+        });
+      } catch (error) {
+        setError(
+          error instanceof Error
+            ? error.message
+            : "Failed to build daily summary"
+        );
+      }
+    },
+    [sendStreamingMessage, setError]
+  );
+
   // Get messages for active conversation
   const messages = getActiveConversation()?.messages ?? [];
 
@@ -159,6 +195,7 @@ export function useChat() {
 
     // Actions
     sendMessage,
+    sendDailySummary,
     cancelStreaming,
     newConversation,
     setActiveConversation,
