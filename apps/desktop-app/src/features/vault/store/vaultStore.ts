@@ -141,8 +141,8 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
         title,
         path: notePath,
         content,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         tags: extractTags(rawContent),
         links: extractWikiLinks(rawContent),
       };
@@ -179,7 +179,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
           activeNote: {
             ...activeNote,
             content,
-            updatedAt: new Date(),
+            updatedAt: new Date().toISOString(),
             tags: extractTags(markdownContent),
             links: extractWikiLinks(markdownContent),
           },

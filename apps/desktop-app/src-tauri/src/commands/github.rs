@@ -76,6 +76,7 @@ struct RepositoryInfo {
 #[specta::specta]
 pub async fn get_github_activity(date: String) -> Result<GitHubActivityResponse, String> {
     let date = date.trim().to_string();
+    // Date input is expected to be KST (YYYY-MM-DD) from the frontend.
     validate_date(&date)?;
 
     let response = tauri::async_runtime::spawn_blocking(move || fetch_activity(&date))

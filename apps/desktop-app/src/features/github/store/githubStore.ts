@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { getKstDateKey } from "@bun-enttokk/shared";
 import { create } from "zustand";
 
 import { getGitHubActivity } from "@/lib/github";
@@ -22,7 +22,7 @@ type GitHubStoreState = {
   refresh: () => Promise<void>;
 };
 
-const formatDateKey = (date: Date) => format(date, "yyyy-MM-dd");
+const formatDateKey = (date: Date) => getKstDateKey(date);
 
 const resolveStatus = (message: string): GitHubStatus => {
   const lowered = message.toLowerCase();

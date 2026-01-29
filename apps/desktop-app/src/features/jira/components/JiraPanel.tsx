@@ -1,4 +1,5 @@
-import { format, isValid, parseISO } from "date-fns";
+import { formatInKst, getKstDateKey } from "@bun-enttokk/shared";
+import { isValid, parseISO } from "date-fns";
 import { LogOut, RefreshCw, Save, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -17,7 +18,23 @@ const getIssueUpdatedKey = (updated?: string) => {
   if (!updated) return null;
   const parsed = parseISO(updated);
   if (!isValid(parsed)) return null;
-  return format(parsed, "yyyy-MM-dd");
+  return formatInKst(parsed, "yyyy-MM-dd");
+};
+
+const formatIssueUpdated = (updated?: string) => {
+  if (!updated) return null;
+  const parsed = parseISO(updated);
+  if (!isValid(parsed)) return null;
+  return formatInKst(parsed, "PPpp");
+};
+
+const formatIssueUpdatedLabel = (
+  updated: string | undefined,
+  hasAssignee: boolean
+) => {
+  const label = formatIssueUpdated(updated);
+  if (!label) return "";
+  return `${hasAssignee ? " · " : ""}Updated: ${label}`;
 };
 
 export function JiraPanel() {
@@ -50,8 +67,8 @@ export function JiraPanel() {
   const hasToken = Boolean(apiToken.trim() || hasStoredToken);
   const canTest = Boolean(baseUrl.trim() && email.trim() && hasToken);
   const canFetch = canTest;
-  const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
-  const selectedDateLabel = format(selectedDate, "MMM d, yyyy");
+  const selectedDateKey = getKstDateKey(selectedDate);
+  const selectedDateLabel = formatInKst(selectedDate, "MMM d, yyyy");
   const filteredIssues = useMemo(
     () =>
       issues.filter(
@@ -192,11 +209,10 @@ export function JiraPanel() {
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
                   {issue.assignee ? `Assignee: ${issue.assignee}` : ""}
-                  {issue.updated
-                    ? `${issue.assignee ? " · " : ""}Updated: ${new Date(
-                        issue.updated
-                      ).toLocaleString()}`
-                    : ""}
+                  {formatIssueUpdatedLabel(
+                    issue.updated,
+                    Boolean(issue.assignee)
+                  )}
                 </div>
               </div>
             ))}

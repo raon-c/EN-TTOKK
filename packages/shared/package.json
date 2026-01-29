@@ -2,5 +2,9 @@
   "name": "@bun-enttokk/shared",
   "version": "1.0.0",
   "main": "index.ts",
-  "types": "index.ts"
+  "types": "index.ts",
+  "dependencies": {
+    "@date-fns/tz": "^1.4.1",
+    "date-fns": "^4.1.0"
+  }
 }

@@ -33,7 +33,7 @@ export function CalendarDayWithEventDot({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={getDateKey(day.date)}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

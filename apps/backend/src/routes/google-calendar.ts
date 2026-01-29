@@ -15,7 +15,7 @@ type OAuthResult = {
 const oauthResults = new Map<string, OAuthResult>();
 
 const pruneOauthResults = () => {
-  const now = Date.now();
+  const now = Date.now(); // UTC epoch ms
   for (const [state, result] of oauthResults.entries()) {
     if (now - result.receivedAt > OAUTH_RESULT_TTL_MS) {
       oauthResults.delete(state);
@@ -42,7 +42,7 @@ googleCalendar.get("/oauth/google/callback", (c) => {
   oauthResults.set(state, {
     code: code ?? undefined,
     error: error ?? undefined,
-    receivedAt: Date.now(),
+    receivedAt: Date.now(), // UTC epoch ms
   });
 
   return c.html(

@@ -34,7 +34,7 @@ function log(level: LogLevel, message: string, data?: unknown): void {
   const entry: LogEntry = {
     level,
     message,
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString(), // UTC ISO
     data,
   };
 

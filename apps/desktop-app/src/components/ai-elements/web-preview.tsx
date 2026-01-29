@@ -1,5 +1,6 @@
 "use client";
 
+import { formatInKst } from "@bun-enttokk/shared";
 import { ChevronDownIcon } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
@@ -249,7 +250,7 @@ export const WebPreviewConsole = ({
                 key={`${log.timestamp.getTime()}-${index}`}
               >
                 <span className="text-muted-foreground">
-                  {log.timestamp.toLocaleTimeString()}
+                  {formatInKst(log.timestamp, "HH:mm:ss")}
                 </span>{" "}
                 {log.message}
               </div>

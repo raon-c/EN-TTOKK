@@ -10,6 +10,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@bun-enttokk/shared": "workspace:*",
     "hono": "^4.7.0",
     "@enttokk/api-types": "workspace:*",
     "zod": "^3.24.0"

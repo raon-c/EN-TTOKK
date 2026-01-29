@@ -9,8 +9,8 @@ export interface Note {
   title: string;
   path: string;
   content: string;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt: string;
+  updatedAt: string;
   tags: string[];
   links: WikiLink[];
 }

@@ -1,3 +1,4 @@
+import { formatInKst } from "@bun-enttokk/shared";
 import {
   CheckCircle2,
   Loader2,
@@ -8,7 +9,6 @@ import {
   XCircle,
 } from "lucide-react";
 import * as React from "react";
-
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -210,7 +210,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                 )}
                 {lastChecked && (
                   <p className="text-xs text-muted-foreground">
-                    Last checked: {lastChecked.toLocaleTimeString()}
+                    Last checked: {formatInKst(lastChecked, "HH:mm:ss")}
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">

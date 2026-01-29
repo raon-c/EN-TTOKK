@@ -1,4 +1,5 @@
-import { format, parseISO } from "date-fns";
+import { formatInKst } from "@bun-enttokk/shared";
+import { parseISO } from "date-fns";
 import { CalendarDays, LogIn, LogOut, RefreshCw } from "lucide-react";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -22,9 +23,9 @@ const formatEventTime = (start?: string, end?: string, isAllDay?: boolean) => {
   if (isAllDay) return "All day";
   if (!start) return "Unknown time";
   const startDate = parseISO(start);
-  if (!end) return format(startDate, "HH:mm");
+  if (!end) return formatInKst(startDate, "HH:mm");
   const endDate = parseISO(end);
-  return `${format(startDate, "HH:mm")}-${format(endDate, "HH:mm")}`;
+  return `${formatInKst(startDate, "HH:mm")}-${formatInKst(endDate, "HH:mm")}`;
 };
 
 export function GoogleCalendarPanel() {
@@ -63,7 +64,7 @@ export function GoogleCalendarPanel() {
   }, [selectedDate, selectDate]);
 
   const selectedDateLabel = selectedDate
-    ? format(selectedDate, "MMM d, yyyy")
+    ? formatInKst(selectedDate, "MMM d, yyyy")
     : "Select a date";
 
   return (
@@ -107,79 +108,81 @@ export function GoogleCalendarPanel() {
       </SidebarHeader>
       <SidebarContent>
         <Calendar
-        mode="single"
-        selected={selectedDate ?? new Date()}
-        onSelect={selectDate}
-        disabled={status === "connecting"}
-        className="w-full bg-sidebar"
-        components={{
-          DayButton: (props) => (
-            <CalendarDayWithEventDot {...props} eventDates={eventDates} />
-          ),
-        }}
-      />
+          mode="single"
+          selected={selectedDate ?? new Date()}
+          onSelect={selectDate}
+          disabled={status === "connecting"}
+          className="w-full bg-sidebar"
+          components={{
+            DayButton: (props) => (
+              <CalendarDayWithEventDot {...props} eventDates={eventDates} />
+            ),
+          }}
+        />
 
-      <Separator />
+        <Separator />
 
-      <div className="space-y-3 px-3 pb-4">
-        <div className="text-sm font-medium">{selectedDateLabel}</div>
+        <div className="space-y-3 px-3 pb-4">
+          <div className="text-sm font-medium">{selectedDateLabel}</div>
 
-        {showConnect ? (
-          <Empty className="border-none p-0">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CalendarDays className="size-4" />
-              </EmptyMedia>
-              <EmptyTitle>Connect Google Calendar</EmptyTitle>
-              <EmptyDescription>
-                Sign in to sync events into the app.
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent />
-          </Empty>
-        ) : isDayLoading ? (
-          <div className="text-xs text-muted-foreground">Loading events...</div>
-        ) : selectedEvents.length === 0 ? (
-          <Empty className="border-none p-0">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <CalendarDays className="size-4" />
-              </EmptyMedia>
-              <EmptyTitle>No events</EmptyTitle>
-              <EmptyDescription>No events for this day.</EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent />
-          </Empty>
-        ) : (
-          <div className="space-y-2">
-            {selectedEvents.map((event) => {
-              const start = event.start?.dateTime ?? event.start?.date;
-              const end = event.end?.dateTime ?? event.end?.date;
-              const isAllDay = Boolean(
-                event.start?.date && !event.start?.dateTime
-              );
-              return (
-                <div
-                  key={event.id}
-                  className="rounded-lg border bg-card px-3 py-2 text-sm shadow-xs"
-                >
-                  <div className="font-medium">
-                    {event.summary?.trim() || "Untitled event"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {formatEventTime(start, end, isAllDay)}
-                  </div>
-                  {event.location && (
-                    <div className="text-xs text-muted-foreground">
-                      Location: {event.location}
+          {showConnect ? (
+            <Empty className="border-none p-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <CalendarDays className="size-4" />
+                </EmptyMedia>
+                <EmptyTitle>Connect Google Calendar</EmptyTitle>
+                <EmptyDescription>
+                  Sign in to sync events into the app.
+                </EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent />
+            </Empty>
+          ) : isDayLoading ? (
+            <div className="text-xs text-muted-foreground">
+              Loading events...
+            </div>
+          ) : selectedEvents.length === 0 ? (
+            <Empty className="border-none p-0">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <CalendarDays className="size-4" />
+                </EmptyMedia>
+                <EmptyTitle>No events</EmptyTitle>
+                <EmptyDescription>No events for this day.</EmptyDescription>
+              </EmptyHeader>
+              <EmptyContent />
+            </Empty>
+          ) : (
+            <div className="space-y-2">
+              {selectedEvents.map((event) => {
+                const start = event.start?.dateTime ?? event.start?.date;
+                const end = event.end?.dateTime ?? event.end?.date;
+                const isAllDay = Boolean(
+                  event.start?.date && !event.start?.dateTime
+                );
+                return (
+                  <div
+                    key={event.id}
+                    className="rounded-lg border bg-card px-3 py-2 text-sm shadow-xs"
+                  >
+                    <div className="font-medium">
+                      {event.summary?.trim() || "Untitled event"}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatEventTime(start, end, isAllDay)}
+                    </div>
+                    {event.location && (
+                      <div className="text-xs text-muted-foreground">
+                        Location: {event.location}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </SidebarContent>
     </>
   );

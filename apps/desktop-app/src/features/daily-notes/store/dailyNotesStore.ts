@@ -1,4 +1,5 @@
-import { format, isValid, parse } from "date-fns";
+import { formatInKst, getKstDateKey } from "@bun-enttokk/shared";
+import { isValid, parse } from "date-fns";
 import { Effect } from "effect";
 import { create } from "zustand";
 
@@ -21,12 +22,12 @@ function sanitizeFolderName(folder: string): string {
 }
 
 function processTemplate(template: string, date: Date): string {
-  const year = format(date, "yyyy");
-  const month = format(date, "MM");
-  const day = format(date, "dd");
-  const dateStr = format(date, "yyyy-MM-dd");
-  const dayOfWeek = format(date, "EEEE");
-  const dayOfWeekShort = format(date, "EEE");
+  const year = formatInKst(date, "yyyy");
+  const month = formatInKst(date, "MM");
+  const day = formatInKst(date, "dd");
+  const dateStr = formatInKst(date, "yyyy-MM-dd");
+  const dayOfWeek = formatInKst(date, "EEEE");
+  const dayOfWeekShort = formatInKst(date, "EEE");
 
   return template
     .replace(/\{\{date\}\}/g, dateStr)
@@ -144,7 +145,7 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
         );
       }
 
-      const formattedDate = format(date, mergedSettings.dateFormat);
+      const formattedDate = formatInKst(date, mergedSettings.dateFormat);
       const folderPath = `${vaultPath}/${sanitizedFolder}`;
       const notePath = `${folderPath}/${formattedDate}.md`;
 
@@ -161,7 +162,7 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
       }
 
       const { existingDates } = get();
-      const dateKey = format(date, "yyyy-MM-dd");
+      const dateKey = getKstDateKey(date);
 
       if (!existingDates.has(dateKey)) {
         const content = processTemplate(mergedSettings.template, date);
@@ -190,7 +191,7 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
       ...DEFAULT_DAILY_NOTES_SETTINGS,
       ...settings,
     };
-    const dateKey = format(date, mergedSettings.dateFormat);
+    const dateKey = formatInKst(date, mergedSettings.dateFormat);
     return get().existingDates.has(dateKey);
   },
 

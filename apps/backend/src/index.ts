@@ -22,7 +22,7 @@ app.use(
 app.get("/healthz", (c) => {
   const response: HealthResponse = {
     status: "ok",
-    timestamp: new Date().toISOString(),
+    timestamp: new Date().toISOString(), // UTC ISO
   };
   return c.json(response);
 });

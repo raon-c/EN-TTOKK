@@ -1,4 +1,5 @@
-import { format, isValid, parseISO } from "date-fns";
+import { formatInKst } from "@bun-enttokk/shared";
+import { isValid, parseISO } from "date-fns";
 import { Github, RefreshCw } from "lucide-react";
 import { useEffect } from "react";
 
@@ -23,7 +24,7 @@ import type { GitHubActivityItem, GitHubActivityKind } from "../types";
 const formatTimestamp = (value: string) => {
   const parsed = parseISO(value);
   if (!isValid(parsed)) return "Unknown time";
-  return format(parsed, "PPpp");
+  return formatInKst(parsed, "PPpp");
 };
 
 const kindLabelMap: Record<GitHubActivityKind, string> = {
@@ -52,7 +53,7 @@ export function GitHubPanel() {
     void refresh();
   }, [refresh]);
 
-  const selectedDateLabel = format(selectedDate, "MMM d, yyyy");
+  const selectedDateLabel = formatInKst(selectedDate, "MMM d, yyyy");
   const isDisconnected = status === "disconnected";
 
   return (

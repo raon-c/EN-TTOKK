@@ -1,5 +1,6 @@
 "use client";
 
+import { formatInKst } from "@bun-enttokk/shared";
 import { ko } from "date-fns/locale";
 import {
   ChevronDownIcon,
@@ -40,8 +41,7 @@ function Calendar({
       )}
       captionLayout={captionLayout}
       formatters={{
-        formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+        formatMonthDropdown: (date) => formatInKst(date, "MMM"),
         ...formatters,
       }}
       classNames={{
@@ -198,7 +198,7 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={formatInKst(day.date, "yyyy-MM-dd")}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

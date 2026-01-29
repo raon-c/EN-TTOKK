@@ -51,7 +51,7 @@ chat.post("/", async (c) => {
         id: crypto.randomUUID(),
         role: "assistant" as const,
         content: result.content,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toISOString(), // UTC ISO
       },
       sessionId: result.sessionId,
     });
@@ -91,7 +91,7 @@ chat.post("/stream", async (c) => {
         try {
           await stream.writeSSE({
             event: "ping",
-            data: JSON.stringify({ type: "ping", timestamp: Date.now() }),
+            data: JSON.stringify({ type: "ping", timestamp: Date.now() }), // UTC epoch ms
             id: requestId,
           });
         } catch {

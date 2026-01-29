@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatInKst } from "@bun-enttokk/shared";
 import * as React from "react";
 import { type DayButton, getDefaultClassNames } from "react-day-picker";
 
@@ -29,7 +29,7 @@ export function CalendarDayWithDot({
     if (modifiers.focused) ref.current?.focus();
   }, [modifiers.focused]);
 
-  const dateKey = format(day.date, settings?.dateFormat ?? "yyyy-MM-dd");
+  const dateKey = formatInKst(day.date, settings?.dateFormat ?? "yyyy-MM-dd");
   const hasNote = existingDates.has(dateKey);
 
   return (
@@ -37,7 +37,7 @@ export function CalendarDayWithDot({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={formatInKst(day.date, "yyyy-MM-dd")}
       data-has-note={hasNote}
       data-selected-single={
         modifiers.selected &&
