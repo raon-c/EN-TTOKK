@@ -1,9 +1,10 @@
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::io::{self, BufRead};
 use std::path::PathBuf;
+use std::sync::{Mutex, OnceLock};
 
 #[derive(Debug, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]
@@ -64,6 +65,21 @@ struct ContentBlock {
     text: Option<String>,
 }
 
+static PROJECT_PATH_CACHE: OnceLock<Mutex<HashMap<PathBuf, String>>> = OnceLock::new();
+
+fn get_cached_project_path(project_dir: &PathBuf) -> Option<String> {
+    let cache = PROJECT_PATH_CACHE.get()?;
+    let cache = cache.lock().ok()?;
+    cache.get(project_dir).cloned()
+}
+
+fn set_cached_project_path(project_dir: &PathBuf, value: String) {
+    let cache = PROJECT_PATH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Ok(mut cache) = cache.lock() {
+        cache.insert(project_dir.clone(), value);
+    }
+}
+
 fn get_claude_dir() -> Result<PathBuf, String> {
     let home = dirs::home_dir().ok_or("Cannot find home directory")?;
     Ok(home.join(".claude"))
@@ -73,6 +89,10 @@ fn get_claude_dir() -> Result<PathBuf, String> {
 /// The folder name encoding is ambiguous (both '/' and '.' become '-'),
 /// so we read the `cwd` field from the first JSONL record instead.
 fn extract_project_path_from_dir(project_dir: &PathBuf) -> Option<String> {
+    if let Some(cached) = get_cached_project_path(project_dir) {
+        return Some(cached);
+    }
+
     let jsonl_entries = fs::read_dir(project_dir).ok()?;
 
     for entry in jsonl_entries.flatten() {
@@ -81,14 +101,16 @@ fn extract_project_path_from_dir(project_dir: &PathBuf) -> Option<String> {
             continue;
         }
 
-        let content = fs::read_to_string(&path).ok()?;
-        for line in content.lines() {
+        let file = fs::File::open(&path).ok()?;
+        let reader = io::BufReader::new(file);
+        for line in reader.lines().flatten() {
             if line.trim().is_empty() {
                 continue;
             }
 
-            if let Ok(record) = serde_json::from_str::<JsonlRecord>(line) {
+            if let Ok(record) = serde_json::from_str::<JsonlRecord>(&line) {
                 if let Some(cwd) = record.cwd {
+                    set_cached_project_path(project_dir, cwd.clone());
                     return Some(cwd);
                 }
             }
@@ -99,12 +121,14 @@ fn extract_project_path_from_dir(project_dir: &PathBuf) -> Option<String> {
 }
 
 fn parse_date(date: &str) -> Result<(i32, u32, u32), String> {
-    let re = Regex::new(r"^(\d{4})-(\d{2})-(\d{2})$").map_err(|e| e.to_string())?;
-    let caps = re.captures(date).ok_or("Date must be in YYYY-MM-DD format")?;
+    let bytes = date.as_bytes();
+    if bytes.len() != 10 || bytes[4] != b'-' || bytes[7] != b'-' {
+        return Err("Date must be in YYYY-MM-DD format".to_string());
+    }
 
-    let year: i32 = caps[1].parse().map_err(|_| "Invalid year")?;
-    let month: u32 = caps[2].parse().map_err(|_| "Invalid month")?;
-    let day: u32 = caps[3].parse().map_err(|_| "Invalid day")?;
+    let year = parse_four_digits(&bytes[0..4]).ok_or("Invalid year")? as i32;
+    let month = parse_two_digits(&bytes[5..7]).ok_or("Invalid month")?;
+    let day = parse_two_digits(&bytes[8..10]).ok_or("Invalid day")?;
 
     Ok((year, month, day))
 }
@@ -112,15 +136,21 @@ fn parse_date(date: &str) -> Result<(i32, u32, u32), String> {
 /// Parse ISO 8601 timestamp and extract date components in KST timezone.
 /// Format: "2026-01-22T05:08:51.202Z"
 fn parse_iso_timestamp(timestamp: &str) -> Option<(i32, u32, u32, u32, u32)> {
-    // Extract date and time parts from ISO string
-    let re = Regex::new(r"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})").ok()?;
-    let caps = re.captures(timestamp)?;
+    let bytes = timestamp.as_bytes();
+    if bytes.len() < 16
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+    {
+        return None;
+    }
 
-    let year: i32 = caps[1].parse().ok()?;
-    let month: u32 = caps[2].parse().ok()?;
-    let day: u32 = caps[3].parse().ok()?;
-    let hour: u32 = caps[4].parse().ok()?;
-    let minute: u32 = caps[5].parse().ok()?;
+    let year = parse_four_digits(&bytes[0..4])? as i32;
+    let month = parse_two_digits(&bytes[5..7])?;
+    let day = parse_two_digits(&bytes[8..10])?;
+    let hour = parse_two_digits(&bytes[11..13])?;
+    let minute = parse_two_digits(&bytes[14..16])?;
 
     // Convert UTC to KST (UTC+9)
     let kst_hour = hour + 9;
@@ -131,6 +161,31 @@ fn parse_iso_timestamp(timestamp: &str) -> Option<(i32, u32, u32, u32, u32)> {
     } else {
         Some((year, month, day, kst_hour, minute))
     }
+}
+
+fn parse_two_digits(bytes: &[u8]) -> Option<u32> {
+    if bytes.len() != 2 || !bytes[0].is_ascii_digit() || !bytes[1].is_ascii_digit() {
+        return None;
+    }
+    let tens = (bytes[0] - b'0') as u32;
+    let ones = (bytes[1] - b'0') as u32;
+    Some(tens * 10 + ones)
+}
+
+fn parse_four_digits(bytes: &[u8]) -> Option<u32> {
+    if bytes.len() != 4
+        || !bytes[0].is_ascii_digit()
+        || !bytes[1].is_ascii_digit()
+        || !bytes[2].is_ascii_digit()
+        || !bytes[3].is_ascii_digit()
+    {
+        return None;
+    }
+    let thousands = (bytes[0] - b'0') as u32;
+    let hundreds = (bytes[1] - b'0') as u32;
+    let tens = (bytes[2] - b'0') as u32;
+    let ones = (bytes[3] - b'0') as u32;
+    Some(thousands * 1000 + hundreds * 100 + tens * 10 + ones)
 }
 
 fn add_one_day(year: i32, month: u32, day: u32) -> (i32, u32, u32) {
@@ -206,17 +261,18 @@ fn read_jsonl_activities(
     subscribed_folders: &[String],
 ) -> Result<Vec<ClaudeActivityItem>, String> {
     let (year, month, day) = parse_date(date)?;
-    let content = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let file = fs::File::open(path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let reader = io::BufReader::new(file);
 
     let mut items = Vec::new();
 
-    for line in content.lines() {
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Failed to read file: {}", e))?;
         if line.trim().is_empty() {
             continue;
         }
 
-        let record: JsonlRecord = match serde_json::from_str(line) {
+        let record: JsonlRecord = match serde_json::from_str(&line) {
             Ok(r) => r,
             Err(_) => continue, // Skip invalid lines
         };
@@ -442,17 +498,18 @@ pub async fn get_claude_activity_dates(
                     continue;
                 }
 
-                let content = match fs::read_to_string(&path) {
-                    Ok(c) => c,
+                let file = match fs::File::open(&path) {
+                    Ok(file) => file,
                     Err(_) => continue,
                 };
+                let reader = io::BufReader::new(file);
 
-                for line in content.lines() {
+                for line in reader.lines().flatten() {
                     if line.trim().is_empty() {
                         continue;
                     }
 
-                    let record: JsonlRecord = match serde_json::from_str(line) {
+                    let record: JsonlRecord = match serde_json::from_str(&line) {
                         Ok(r) => r,
                         Err(_) => continue,
                     };
