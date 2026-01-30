@@ -4,6 +4,7 @@ import {
   FileTextIcon,
   Github,
   MessageSquare,
+  Terminal,
 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { JiraIcon } from "@/components/icons/JiraIcon";
@@ -15,6 +16,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { ChatPanel } from "@/features/chat";
+import { ClaudeActivityPanel } from "@/features/claude-activity";
 import { DailyNotesCalendar } from "@/features/daily-notes";
 import { Editor } from "@/features/editor/components/Editor";
 import { GitHubPanel } from "@/features/github";
@@ -29,7 +31,8 @@ type RightSidebarTab =
   | "google-calendar"
   | "chat"
   | "jira"
-  | "github";
+  | "github"
+  | "claude-activity";
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -174,6 +177,7 @@ function RightSidebarContent({
         )}
         {rightSidebarTab === "jira" && <JiraPanel />}
         {rightSidebarTab === "github" && <GitHubPanel />}
+        {rightSidebarTab === "claude-activity" && <ClaudeActivityPanel />}
       </Sidebar>
       <RightSidebarButtons
         activeTab={rightSidebarTab}
@@ -283,6 +287,15 @@ function RightSidebarButtons({
           className={getButtonClassName("github")}
         >
           <Github className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => handleTabClick("claude-activity")}
+          title="Claude Activity"
+          className={getButtonClassName("claude-activity")}
+        >
+          <Terminal className="size-4" />
         </Button>
       </div>
     </div>

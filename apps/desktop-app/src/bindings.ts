@@ -127,6 +127,30 @@ async removeJiraToken() : Promise<Result<null, string>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async listClaudeProjects() : Promise<Result<string[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_claude_projects") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getClaudeActivities(date: string, subscribedFolders: string[]) : Promise<Result<ClaudeActivityResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_claude_activities", { date, subscribedFolders }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getClaudeActivityDates(subscribedFolders: string[], year: number, month: number) : Promise<Result<number[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_claude_activity_dates", { subscribedFolders, year, month }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -140,6 +164,9 @@ async removeJiraToken() : Promise<Result<null, string>> {
 
 /** user-defined types **/
 
+export type ClaudeActivityItem = { kind: ClaudeActivityKind; content: string; timestamp: string; project_path: string; session_id: string }
+export type ClaudeActivityKind = "user" | "assistant"
+export type ClaudeActivityResponse = { date: string; items: ClaudeActivityItem[] }
 export type FileEntry = { name: string; path: string; is_dir: boolean; children: FileEntry[] | null }
 export type GitHubActivityItem = { kind: GitHubActivityKind; title: string; url: string; repo: string; timestamp: string; number: number | null; summary: string | null }
 export type GitHubActivityKind = "commit" | "pull_request" | "review" | "comment"

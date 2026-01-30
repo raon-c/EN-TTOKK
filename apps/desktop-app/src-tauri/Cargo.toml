@@ -37,6 +37,7 @@ walkdir = "2"
 notify = "6"
 regex = "1"
 tokio = { version = "1", features = ["fs"] }
+dirs = "5"
 
 [profile.dev.package.scrypt]
 opt-level = 3

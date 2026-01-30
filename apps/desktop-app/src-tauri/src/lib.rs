@@ -2,8 +2,9 @@ mod commands;
 mod sidecar;
 
 use commands::{
-    create_file, create_folder, create_vault, delete_file, get_all_notes, get_github_activity,
-    get_jira_token, open_vault, read_directory, read_file, remove_jira_token, rename_file,
+    create_file, create_folder, create_vault, delete_file, get_all_notes,
+    get_claude_activities, get_claude_activity_dates, get_github_activity, get_jira_token,
+    list_claude_projects, open_vault, read_directory, read_file, remove_jira_token, rename_file,
     set_jira_token, validate_vault_path, write_file,
 };
 #[cfg(any(debug_assertions, test))]
@@ -36,10 +37,16 @@ fn create_specta_builder() -> Builder {
         rename_file,
         create_folder,
         get_all_notes,
+        // GitHub commands
         get_github_activity,
+        // Jira commands
         get_jira_token,
         set_jira_token,
         remove_jira_token,
+        // Claude commands
+        list_claude_projects,
+        get_claude_activities,
+        get_claude_activity_dates,
     ])
 }
 
