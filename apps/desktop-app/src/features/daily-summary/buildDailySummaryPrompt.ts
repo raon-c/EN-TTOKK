@@ -2,6 +2,8 @@ import { formatInKst, getKstDateKey } from "@bun-enttokk/shared";
 import { isValid, parse, parseISO } from "date-fns";
 
 import { commands } from "@/bindings";
+import { useClaudeActivityStore } from "@/features/claude-activity/store/claudeActivityStore";
+import type { ClaudeActivityItem } from "@/features/claude-activity/types";
 import { DEFAULT_DAILY_NOTES_SETTINGS } from "@/features/daily-notes/types";
 import type { GitHubActivityItem } from "@/features/github/types";
 import { useGoogleCalendarStore } from "@/features/google-calendar/store/googleCalendarStore";
@@ -9,6 +11,7 @@ import { getEventDateKey } from "@/features/google-calendar/utils/dates";
 import { useJiraStore } from "@/features/jira/store/jiraStore";
 import { useSettingsStore } from "@/features/settings/store/settingsStore";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
+import { getClaudeActivities } from "@/lib/claude";
 import { getGitHubActivity } from "@/lib/github";
 import { htmlToMarkdown } from "@/lib/markdown";
 
@@ -218,6 +221,56 @@ const formatGitHubLines = (items: GitHubActivityItem[]) => {
   return { lines, truncated };
 };
 
+const MAX_CLAUDE_SESSIONS = 10;
+const CLAUDE_TASK_SUMMARY_LENGTH = 80;
+
+const formatClaudeActivityLines = (items: ClaudeActivityItem[]) => {
+  // Group by session_id to show conversations
+  const sessionGroups = new Map<string, ClaudeActivityItem[]>();
+  for (const item of items) {
+    if (!sessionGroups.has(item.session_id)) {
+      sessionGroups.set(item.session_id, []);
+    }
+    sessionGroups.get(item.session_id)?.push(item);
+  }
+
+  const lines: string[] = [];
+  let sessionCount = 0;
+
+  for (const sessionItems of sessionGroups.values()) {
+    if (sessionCount >= MAX_CLAUDE_SESSIONS) {
+      const remaining = sessionGroups.size - MAX_CLAUDE_SESSIONS;
+      lines.push(`- ... 외 ${remaining}개 세션`);
+      break;
+    }
+
+    const projectPath = sessionItems[0]?.project_path ?? "Unknown";
+    const pathParts = projectPath.split("/");
+    const projectName = pathParts[pathParts.length - 1] ?? projectPath;
+
+    // Get user messages as task summary
+    const userMessages = sessionItems.filter((item) => item.kind === "user");
+    const firstUserMessage = userMessages[0]?.content ?? "";
+    const firstLine = firstUserMessage.split("\n")[0] ?? "";
+    const taskSummary = truncateText(firstLine, CLAUDE_TASK_SUMMARY_LENGTH);
+
+    const timestamp = sessionItems[0]?.timestamp;
+    const timeLabel = timestamp ? formatTimestamp(timestamp) : "";
+    const label = taskSummary || "대화 세션";
+
+    lines.push(
+      `- [${projectName}] ${label} (${userMessages.length}개 질문) · ${timeLabel}`
+    );
+    sessionCount++;
+  }
+
+  if (lines.length === 0) {
+    return { lines: ["- 없음"], truncated: 0 };
+  }
+
+  return { lines, truncated: 0 };
+};
+
 const formatDailyNoteBlock = (result: DailyNoteResult) => {
   if (result.status === "available" && result.content) {
     return truncateText(result.content.trim(), MAX_DAILY_NOTE_CHARS) || "없음";
@@ -251,51 +304,78 @@ export async function buildDailySummaryPrompt(
   const targetKey = getKstDateKey(date);
   const dateLabel = formatInKst(date, "yyyy-MM-dd");
 
-  const [dailyNoteResult, githubResult, jiraResult] = await Promise.all([
-    loadDailyNoteContent(date),
-    getGitHubActivity(targetKey)
-      .then((response) => ({
-        status: "connected" as const,
-        items: response.items ?? [],
-        error: null as string | null,
-      }))
-      .catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          status: resolveGitHubStatus(message),
-          items: [] as GitHubActivityItem[],
-          error: message,
-        };
-      }),
-    (async () => {
-      try {
-        const store = useJiraStore.getState();
-        await store.loadFromStore();
-        const state = useJiraStore.getState();
-        if (state.status === "connected") {
-          await state.fetchIssues();
+  const [dailyNoteResult, githubResult, jiraResult, claudeResult] =
+    await Promise.all([
+      loadDailyNoteContent(date),
+      getGitHubActivity(targetKey)
+        .then((response) => ({
+          status: "connected" as const,
+          items: response.items ?? [],
+          error: null as string | null,
+        }))
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          return {
+            status: resolveGitHubStatus(message),
+            items: [] as GitHubActivityItem[],
+            error: message,
+          };
+        }),
+      (async () => {
+        try {
+          const store = useJiraStore.getState();
+          await store.loadFromStore();
+          const state = useJiraStore.getState();
+          if (state.status === "connected") {
+            await state.fetchIssues();
+          }
+          const nextState = useJiraStore.getState();
+          const resolvedStatus: SourceStatus =
+            nextState.status === "connected"
+              ? "connected"
+              : nextState.status === "error"
+                ? "error"
+                : "disconnected";
+          return {
+            status: resolvedStatus,
+            error: nextState.error,
+            issues: nextState.issues,
+          };
+        } catch (error) {
+          return {
+            status: "error" as const,
+            error: error instanceof Error ? error.message : "Jira load failed",
+            issues: [] as JiraIssue[],
+          };
         }
-        const nextState = useJiraStore.getState();
-        const resolvedStatus: SourceStatus =
-          nextState.status === "connected"
-            ? "connected"
-            : nextState.status === "error"
-              ? "error"
-              : "disconnected";
-        return {
-          status: resolvedStatus,
-          error: nextState.error,
-          issues: nextState.issues,
-        };
-      } catch (error) {
-        return {
-          status: "error" as const,
-          error: error instanceof Error ? error.message : "Jira load failed",
-          issues: [] as JiraIssue[],
-        };
-      }
-    })(),
-  ]);
+      })(),
+      (async () => {
+        try {
+          const claudeStore = useClaudeActivityStore.getState();
+          await claudeStore.loadSavedFolders();
+          const { subscribedFolders } = useClaudeActivityStore.getState();
+          if (subscribedFolders.length === 0) {
+            return {
+              status: "disconnected" as SourceStatus,
+              items: [] as ClaudeActivityItem[],
+              error: "구독 폴더 없음",
+            };
+          }
+          const response = await getClaudeActivities(targetKey, subscribedFolders);
+          return {
+            status: "connected" as SourceStatus,
+            items: response.items ?? [],
+            error: null as string | null,
+          };
+        } catch (error) {
+          return {
+            status: "error" as SourceStatus,
+            items: [] as ClaudeActivityItem[],
+            error: error instanceof Error ? error.message : "Claude activity failed",
+          };
+        }
+      })(),
+    ]);
 
   const googleState = useGoogleCalendarStore.getState();
   const googleStatus: SourceStatus =
@@ -309,6 +389,7 @@ export async function buildDailySummaryPrompt(
   const googleLines = formatGoogleCalendarLines(googleState.events, targetKey);
   const jiraLines = formatJiraLines(jiraResult.issues ?? [], targetKey);
   const githubLines = formatGitHubLines(githubResult.items ?? []);
+  const claudeLines = formatClaudeActivityLines(claudeResult.items ?? []);
 
   const requestMessage = [
     "당신은 업무일지를 작성하는 비서입니다.",
@@ -346,6 +427,12 @@ export async function buildDailySummaryPrompt(
       githubResult.error ? ` (${githubResult.error})` : ""
     }`,
     ...githubLines.lines,
+    "",
+    "[Claude Activity]",
+    `상태: ${formatStatusLabel(claudeResult.status)}${
+      claudeResult.error ? ` (${claudeResult.error})` : ""
+    }`,
+    ...claudeLines.lines,
   ].join("\n");
 
   return {
