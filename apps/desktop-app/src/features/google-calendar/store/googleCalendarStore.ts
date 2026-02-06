@@ -10,7 +10,6 @@ import {
   AUTH_TIMEOUT_MS,
   DEFAULT_CALENDAR_ID,
   GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
   GOOGLE_REDIRECT_URI,
   POLL_INTERVAL_MS,
 } from "../config";
@@ -113,7 +112,6 @@ const ensureAccessToken = async (
     refreshToken: current.refreshToken,
     redirectUri: GOOGLE_REDIRECT_URI,
     clientId: GOOGLE_CLIENT_ID,
-    clientSecret: GOOGLE_CLIENT_SECRET || undefined,
   });
 
   const updatedTokens = mapTokenResponse(refreshed, current);
@@ -189,7 +187,6 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
           codeVerifier,
           redirectUri: GOOGLE_REDIRECT_URI,
           clientId: GOOGLE_CLIENT_ID,
-          clientSecret: GOOGLE_CLIENT_SECRET || undefined,
         });
 
         const tokens = mapTokenResponse(tokenResponse, get().tokens);
