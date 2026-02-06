@@ -16,14 +16,14 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { ChatPanel } from "@/features/chat";
-import { ClaudeActivityPanel } from "@/features/claude-activity";
-import { DailyNotesCalendar } from "@/features/daily-notes";
+import { ChatPanel } from "@/features/chat/components/ChatPanel";
+import { ClaudeActivityPanel } from "@/features/claude-activity/components/ClaudeActivityPanel";
+import { DailyNotesCalendar } from "@/features/daily-notes/components/DailyNotesCalendar";
 import { Editor } from "@/features/editor/components/Editor";
-import { GitHubPanel } from "@/features/github";
-import { GoogleCalendarPanel } from "@/features/google-calendar";
-import { JiraPanel } from "@/features/jira";
-import { MeetingNotesPanel } from "@/features/meeting-notes";
+import { GitHubPanel } from "@/features/github/components/GitHubPanel";
+import { GoogleCalendarPanel } from "@/features/google-calendar/components/GoogleCalendarPanel";
+import { JiraPanel } from "@/features/jira/components/JiraPanel";
+import { MeetingNotesPanel } from "@/features/meeting-notes/components/MeetingNotesPanel";
 import { FileExplorer } from "@/features/vault/components/FileExplorer";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { cn } from "@/lib/utils";
