@@ -100,9 +100,7 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     try {
       if (!vaultPath) throw new Error("No vault open");
 
-      const rawContent = await unwrap(
-        commands.readFile(notePath, vaultPath)
-      );
+      const rawContent = await unwrap(commands.readFile(notePath, vaultPath));
 
       const content = markdownToHtml(rawContent);
       const fileName = notePath.split("/").pop() ?? "Untitled";

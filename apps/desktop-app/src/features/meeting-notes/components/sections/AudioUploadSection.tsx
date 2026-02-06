@@ -1,12 +1,5 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import {
-  Download,
-  FileAudio,
-  Loader2,
-  Play,
-  Upload,
-  X,
-} from "lucide-react";
+import { Download, FileAudio, Loader2, Play, Upload, X } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";

@@ -28,8 +28,8 @@ import {
   filterCancelled,
   mapTokenResponse,
   mergeEvents,
-  sortEvents,
   SyncTokenExpiredError,
+  sortEvents,
 } from "./googleCalendarHelpers";
 
 const STORAGE_KEY = "googleCalendar";
@@ -105,7 +105,8 @@ const ensureAccessToken = async (
   if (!isExpired) return current.accessToken;
 
   if (!current.refreshToken) throw new Error("Refresh token missing");
-  if (!GOOGLE_CLIENT_ID) throw new Error("VITE_GOOGLE_CLIENT_ID is not configured");
+  if (!GOOGLE_CLIENT_ID)
+    throw new Error("VITE_GOOGLE_CLIENT_ID is not configured");
 
   const refreshed = await apiClient.googleCalendar.exchangeToken({
     grantType: "refresh_token",
@@ -126,7 +127,8 @@ const pollForAuthCode = async (state: string): Promise<string> => {
   while (Date.now() < deadline) {
     const result = await apiClient.googleCalendar.pollAuthResult(state);
     if (result.status === "complete" && result.code) return result.code;
-    if (result.status === "error") throw new Error(result.error ?? "Authorization failed");
+    if (result.status === "error")
+      throw new Error(result.error ?? "Authorization failed");
     await new Promise((resolve) => setTimeout(resolve, AUTH_POLL_INTERVAL_MS));
   }
   throw new Error("Authorization timed out");
@@ -163,7 +165,10 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
 
     connect: async () => {
       if (!GOOGLE_CLIENT_ID) {
-        set({ status: "error", error: "VITE_GOOGLE_CLIENT_ID is not configured" });
+        set({
+          status: "error",
+          error: "VITE_GOOGLE_CLIENT_ID is not configured",
+        });
         return;
       }
 

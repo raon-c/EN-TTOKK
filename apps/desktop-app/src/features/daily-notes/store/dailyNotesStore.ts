@@ -76,8 +76,7 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
       const folderPath = `${vaultPath}/${sanitizedFolder}`;
       const result = await commands.readDirectory(folderPath);
 
-      const files: FileEntry[] =
-        result.status === "ok" ? result.data : [];
+      const files: FileEntry[] = result.status === "ok" ? result.data : [];
 
       const datePattern = /^\d{4}-\d{2}-\d{2}\.md$/;
       const existingDates = new Set<string>();

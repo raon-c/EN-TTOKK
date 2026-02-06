@@ -1,11 +1,4 @@
-import {
-  Download,
-  FolderOpen,
-  Loader2,
-  Play,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Download, FolderOpen, Loader2, Play, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";

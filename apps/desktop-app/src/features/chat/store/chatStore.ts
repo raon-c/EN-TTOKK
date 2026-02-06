@@ -163,7 +163,9 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
 // Shared streaming logic used by sendMessage and sendDailySummary
 function sendStreamingMessage(
   get: () => ChatStore,
-  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+  set: (
+    partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)
+  ) => void,
   params: {
     requestMessage: string;
     displayMessage?: string;
@@ -258,7 +260,9 @@ function sendStreamingMessage(
 
 function addMessage(
   _get: () => ChatStore,
-  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+  set: (
+    partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)
+  ) => void,
   conversationId: string,
   message: ChatMessage
 ) {
@@ -280,7 +284,9 @@ function addMessage(
 
 function setSessionId(
   _get: () => ChatStore,
-  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+  set: (
+    partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)
+  ) => void,
   conversationId: string,
   sessionId: string
 ) {
@@ -302,7 +308,9 @@ function setSessionId(
 
 function finalizeStreaming(
   get: () => ChatStore,
-  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void
+  set: (
+    partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)
+  ) => void
 ) {
   const { streamingState, activeConversationId } = get();
   if (activeConversationId && streamingState.currentText) {

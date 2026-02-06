@@ -16,13 +16,13 @@ import { htmlToMarkdown } from "@/lib/markdown";
 
 import {
   type DailyNoteResult,
-  type SourceStatus,
   formatClaudeActivityLines,
   formatDailyNoteBlock,
   formatGitHubLines,
   formatGoogleCalendarLines,
   formatJiraLines,
   formatStatusLabel,
+  type SourceStatus,
 } from "./formatters";
 
 export type DailySummaryRequest = {
