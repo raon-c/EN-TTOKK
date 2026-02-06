@@ -22,15 +22,8 @@ use tauri::{
 };
 use tauri_specta::{collect_commands, Builder};
 
-#[tauri::command]
-#[specta::specta]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
 fn create_specta_builder() -> Builder {
     Builder::<tauri::Wry>::new().commands(collect_commands![
-        greet,
         // Vault commands
         open_vault,
         create_vault,

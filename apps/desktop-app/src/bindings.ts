@@ -5,9 +5,6 @@
 
 
 export const commands = {
-async greet(name: string) : Promise<string> {
-    return await TAURI_INVOKE("greet", { name });
-},
 async openVault(path: string) : Promise<Result<VaultConfig, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("open_vault", { path }) };
