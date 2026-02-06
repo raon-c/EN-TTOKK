@@ -1,16 +1,5 @@
-import {
-  endOfKstDay,
-  KST_TIMEZONE,
-  parseDateKeyInTimeZone,
-  startOfKstDay,
-} from "@bun-enttokk/shared";
-import type {
-  GoogleCalendarEvent,
-  GoogleCalendarEventsResponse,
-  GoogleCalendarTokenResponse,
-} from "@enttokk/api-types";
+import type { GoogleCalendarEvent } from "@enttokk/api-types";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { addDays, subDays } from "date-fns";
 import { create } from "zustand";
 
 import { apiClient } from "@/lib/api-client";
@@ -23,10 +12,7 @@ import {
   GOOGLE_CLIENT_ID,
   GOOGLE_CLIENT_SECRET,
   GOOGLE_REDIRECT_URI,
-  GOOGLE_SCOPES,
   POLL_INTERVAL_MS,
-  SYNC_RANGE_FUTURE_DAYS,
-  SYNC_RANGE_PAST_DAYS,
 } from "../config";
 import type { GoogleCalendarStoredState, GoogleCalendarTokens } from "../types";
 import { buildDayRange, filterEventsForDate } from "../utils/dates";
@@ -35,16 +21,19 @@ import {
   generateCodeVerifier,
   generateState,
 } from "../utils/pkce";
+import {
+  buildAuthUrl,
+  buildTimeRange,
+  fetchAllEvents,
+  filterCancelled,
+  mapTokenResponse,
+  mergeEvents,
+  sortEvents,
+  SyncTokenExpiredError,
+} from "./googleCalendarHelpers";
 
 const STORAGE_KEY = "googleCalendar";
-const GOOGLE_AUTH_BASE_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_EXPIRY_SAFETY_MS = 60_000;
-
-class SyncTokenExpiredError extends Error {
-  constructor() {
-    super("Sync token expired");
-  }
-}
 
 type GoogleCalendarStatus =
   | "disconnected"
@@ -71,20 +60,6 @@ interface GoogleCalendarStore {
   syncNow: () => Promise<void>;
   selectDate: (date: Date | undefined) => Promise<void>;
 }
-
-const buildAuthUrl = async (state: string, codeChallenge: string) => {
-  const params = new URLSearchParams();
-  params.set("client_id", GOOGLE_CLIENT_ID);
-  params.set("redirect_uri", GOOGLE_REDIRECT_URI);
-  params.set("response_type", "code");
-  params.set("access_type", "offline");
-  params.set("prompt", "consent");
-  params.set("scope", GOOGLE_SCOPES.join(" "));
-  params.set("state", state);
-  params.set("code_challenge", codeChallenge);
-  params.set("code_challenge_method", "S256");
-  return `${GOOGLE_AUTH_BASE_URL}?${params.toString()}`;
-};
 
 const normalizeTimestamps = (
   stored: GoogleCalendarStoredState
@@ -118,42 +93,19 @@ const persistState = async (state: GoogleCalendarStore) => {
   await setValue(STORAGE_KEY, stored);
 };
 
-const mapTokenResponse = (
-  response: GoogleCalendarTokenResponse,
-  previous: GoogleCalendarTokens | null
-): GoogleCalendarTokens => {
-  const expiresAtMs =
-    Date.now() + response.expires_in * 1000 - TOKEN_EXPIRY_SAFETY_MS;
-  const finalExpiresAtMs = Math.max(Date.now(), expiresAtMs);
-  return {
-    accessToken: response.access_token,
-    refreshToken: response.refresh_token ?? previous?.refreshToken,
-    expiresAt: new Date(finalExpiresAtMs).toISOString(),
-    scope: response.scope,
-    tokenType: response.token_type,
-  };
-};
-
 const ensureAccessToken = async (
   get: () => GoogleCalendarStore,
   set: (partial: Partial<GoogleCalendarStore>) => void
 ): Promise<string> => {
   const current = get().tokens;
-  if (!current) {
-    throw new Error("Missing tokens");
-  }
+  if (!current) throw new Error("Missing tokens");
 
   const expiresAtMs = Date.parse(current.expiresAt);
   const isExpired = expiresAtMs - Date.now() < TOKEN_EXPIRY_SAFETY_MS;
   if (!isExpired) return current.accessToken;
 
-  if (!current.refreshToken) {
-    throw new Error("Refresh token missing");
-  }
-
-  if (!GOOGLE_CLIENT_ID) {
-    throw new Error("VITE_GOOGLE_CLIENT_ID is not configured");
-  }
+  if (!current.refreshToken) throw new Error("Refresh token missing");
+  if (!GOOGLE_CLIENT_ID) throw new Error("VITE_GOOGLE_CLIENT_ID is not configured");
 
   const refreshed = await apiClient.googleCalendar.exchangeToken({
     grantType: "refresh_token",
@@ -169,107 +121,15 @@ const ensureAccessToken = async (
   return updatedTokens.accessToken;
 };
 
-const buildTimeRange = () => {
-  const now = new Date();
-  const timeMin = startOfKstDay(subDays(now, SYNC_RANGE_PAST_DAYS));
-  const timeMax = endOfKstDay(addDays(now, SYNC_RANGE_FUTURE_DAYS));
-  return {
-    timeMin: timeMin.toISOString(),
-    timeMax: timeMax.toISOString(),
-  };
-};
-
-const getEventStart = (event: GoogleCalendarEvent): number => {
-  const startValue = event.start?.dateTime ?? event.start?.date;
-  if (!startValue) return 0;
-  if (event.start?.date && !event.start?.dateTime) {
-    const timeZone = event.start.timeZone ?? KST_TIMEZONE;
-    const parsed = parseDateKeyInTimeZone(startValue, timeZone);
-    return parsed ? parsed.getTime() : 0;
-  }
-  return new Date(startValue).getTime();
-};
-
-const sortEvents = (events: GoogleCalendarEvent[]) =>
-  [...events].sort((a, b) => getEventStart(a) - getEventStart(b));
-
-const mergeEvents = (
-  current: GoogleCalendarEvent[],
-  incoming: GoogleCalendarEvent[]
-) => {
-  const map = new Map(current.map((event) => [event.id, event]));
-  for (const event of incoming) {
-    if (event.status === "cancelled") {
-      map.delete(event.id);
-    } else {
-      map.set(event.id, event);
-    }
-  }
-  return sortEvents(Array.from(map.values()));
-};
-
-const filterCancelled = (events: GoogleCalendarEvent[]) =>
-  events.filter((event) => event.status !== "cancelled");
-
-const extractErrorMessage = (data: GoogleCalendarEventsResponse): string => {
-  const maybeError = data as unknown as { error?: { message?: string } };
-  return maybeError.error?.message ?? "Google Calendar request failed";
-};
-
 const pollForAuthCode = async (state: string): Promise<string> => {
   const deadline = Date.now() + AUTH_TIMEOUT_MS;
   while (Date.now() < deadline) {
     const result = await apiClient.googleCalendar.pollAuthResult(state);
-    if (result.status === "complete" && result.code) {
-      return result.code;
-    }
-    if (result.status === "error") {
-      throw new Error(result.error ?? "Authorization failed");
-    }
+    if (result.status === "complete" && result.code) return result.code;
+    if (result.status === "error") throw new Error(result.error ?? "Authorization failed");
     await new Promise((resolve) => setTimeout(resolve, AUTH_POLL_INTERVAL_MS));
   }
   throw new Error("Authorization timed out");
-};
-
-const fetchAllEvents = async (params: {
-  accessToken: string;
-  calendarId: string;
-  timeMin?: string;
-  timeMax?: string;
-  syncToken?: string;
-}): Promise<{ events: GoogleCalendarEvent[]; nextSyncToken?: string }> => {
-  let pageToken: string | undefined;
-  let nextSyncToken: string | undefined;
-  const events: GoogleCalendarEvent[] = [];
-
-  while (true) {
-    const { status, data } = await apiClient.googleCalendar.listEvents({
-      accessToken: params.accessToken,
-      calendarId: params.calendarId,
-      timeMin: params.timeMin,
-      timeMax: params.timeMax,
-      syncToken: params.syncToken,
-      pageToken,
-      maxResults: 250,
-    });
-
-    if (status === 410) {
-      throw new SyncTokenExpiredError();
-    }
-
-    if (status >= 400) {
-      throw new Error(extractErrorMessage(data));
-    }
-
-    events.push(...(data.items ?? []));
-    pageToken = data.nextPageToken;
-    if (!pageToken) {
-      nextSyncToken = data.nextSyncToken;
-      break;
-    }
-  }
-
-  return { events, nextSyncToken };
 };
 
 export const useGoogleCalendarStore = create<GoogleCalendarStore>(
@@ -303,10 +163,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
 
     connect: async () => {
       if (!GOOGLE_CLIENT_ID) {
-        set({
-          status: "error",
-          error: "VITE_GOOGLE_CLIENT_ID is not configured",
-        });
+        set({ status: "error", error: "VITE_GOOGLE_CLIENT_ID is not configured" });
         return;
       }
 
@@ -319,7 +176,6 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
         const authUrl = await buildAuthUrl(state, codeChallenge);
 
         await openUrl(authUrl);
-
         const code = await pollForAuthCode(state);
 
         const tokenResponse = await apiClient.googleCalendar.exchangeToken({
@@ -332,12 +188,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
         });
 
         const tokens = mapTokenResponse(tokenResponse, get().tokens);
-
-        set({
-          tokens,
-          status: "connected",
-          error: null,
-        });
+        set({ tokens, status: "connected", error: null });
 
         await persistState(get());
         await get().syncNow();
@@ -411,10 +262,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
           });
         }
 
-        set({
-          status: "connected",
-          lastSyncAt: new Date().toISOString(),
-        });
+        set({ status: "connected", lastSyncAt: new Date().toISOString() });
         await persistState(get());
       } catch (error) {
         if (error instanceof SyncTokenExpiredError) {
@@ -439,11 +287,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
     selectDate: async (date: Date | undefined) => {
       if (!date) return;
       const currentEvents = filterEventsForDate(get().events, date);
-      set({
-        selectedDate: date,
-        selectedEvents: currentEvents,
-        error: null,
-      });
+      set({ selectedDate: date, selectedEvents: currentEvents, error: null });
 
       if (!get().tokens?.accessToken) return;
 
@@ -461,10 +305,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
         });
         const filtered = sortEvents(filterCancelled(events));
         const mergedEvents = mergeEvents(get().events, filtered);
-        set({
-          selectedEvents: filtered,
-          events: mergedEvents,
-        });
+        set({ selectedEvents: filtered, events: mergedEvents });
       } catch (error) {
         set({
           status: "error",
