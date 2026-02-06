@@ -1,7 +1,7 @@
 import type { ChatMessage } from "@enttokk/api-types";
 import { useCallback, useEffect } from "react";
-import { apiClient } from "@/lib/api-client";
 import { buildDailySummaryPrompt } from "@/features/daily-summary/buildDailySummaryPrompt";
+import { apiClient } from "@/lib/api-client";
 import { useChatStore } from "../store/chatStore";
 
 export function useChat() {

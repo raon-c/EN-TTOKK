@@ -1,6 +1,6 @@
-import { $ } from "bun";
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { $ } from "bun";
 
 // Get the target triple for the current platform
 function getTargetTriple(): string {

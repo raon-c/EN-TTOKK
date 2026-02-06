@@ -13,11 +13,7 @@ export interface ClaudeActivityResponse {
   items: ClaudeActivityItem[];
 }
 
-export type ClaudeActivityStatus =
-  | "idle"
-  | "loading"
-  | "loaded"
-  | "error";
+export type ClaudeActivityStatus = "idle" | "loading" | "loaded" | "error";
 
 export interface ClaudeSubscriptionSettings {
   subscribedFolders: string[];

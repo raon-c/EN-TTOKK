@@ -10,8 +10,8 @@ import { GoogleCalendarSync } from "@/features/google-calendar";
 import { SettingsDialog, useSettingsStore } from "@/features/settings";
 import { VaultPicker } from "@/features/vault/components/VaultPicker";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
-import { EditorLayout } from "@/layouts/EditorLayout";
 import { useBackend } from "@/hooks/useBackend";
+import { EditorLayout } from "@/layouts/EditorLayout";
 
 function LoadingScreen({ message = "Loading..." }: { message?: string }) {
   return (
@@ -56,8 +56,11 @@ function ThemeSynchronizer() {
 function AppContent() {
   const { path, _hasHydrated, openVault, closeVault, loadVault } =
     useVaultStore();
-  const { loadSettings, _hasHydrated: settingsHydrated, settings } =
-    useSettingsStore();
+  const {
+    loadSettings,
+    _hasHydrated: settingsHydrated,
+    settings,
+  } = useSettingsStore();
   const { openOrCreateDailyNote } = useDailyNotesStore();
   const {
     status: backendStatus,
@@ -124,7 +127,14 @@ function AppContent() {
         closeVault();
       })
       .finally(() => setIsValidating(false));
-  }, [_hasHydrated, path, openVault, closeVault, openOrCreateDailyNote, settings.dailyNotes]);
+  }, [
+    _hasHydrated,
+    path,
+    openVault,
+    closeVault,
+    openOrCreateDailyNote,
+    settings.dailyNotes,
+  ]);
 
   if (backendStatus === "connecting") {
     return <LoadingScreen message="Connecting to backend..." />;

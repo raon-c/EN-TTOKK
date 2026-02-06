@@ -132,7 +132,9 @@ export function ClaudeActivityPanel() {
               disabled={isLoading}
               title="Refresh activity"
             >
-              <RefreshCw className={cn("size-3", isLoading && "animate-spin")} />
+              <RefreshCw
+                className={cn("size-3", isLoading && "animate-spin")}
+              />
             </Button>
           </div>
         </div>

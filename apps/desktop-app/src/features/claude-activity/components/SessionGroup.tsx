@@ -88,9 +88,7 @@ export function SessionGroup({
               <span>·</span>
               <div className="flex items-center gap-1">
                 <MessageSquare className="size-3" />
-                <span>
-                  {userCount + assistantCount}
-                </span>
+                <span>{userCount + assistantCount}</span>
               </div>
             </div>
             {firstMessage && (

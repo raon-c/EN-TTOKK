@@ -1,8 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 
-import type {
-  ClaudeActivityResponse,
-} from "@/features/claude-activity/types";
+import type { ClaudeActivityResponse } from "@/features/claude-activity/types";
 
 export async function listClaudeProjects(): Promise<string[]> {
   return invoke<string[]>("list_claude_projects");

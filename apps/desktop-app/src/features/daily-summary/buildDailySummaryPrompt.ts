@@ -1,6 +1,6 @@
 import { formatInKst, getKstDateKey } from "@bun-enttokk/shared";
+import type { GoogleCalendarEvent, JiraIssue } from "@enttokk/api-types";
 import { isValid, parse, parseISO } from "date-fns";
-
 import { commands } from "@/bindings";
 import { useClaudeActivityStore } from "@/features/claude-activity/store/claudeActivityStore";
 import type { ClaudeActivityItem } from "@/features/claude-activity/types";
@@ -14,8 +14,6 @@ import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { getClaudeActivities } from "@/lib/claude";
 import { getGitHubActivity } from "@/lib/github";
 import { htmlToMarkdown } from "@/lib/markdown";
-
-import type { GoogleCalendarEvent, JiraIssue } from "@enttokk/api-types";
 
 const MAX_DAILY_NOTE_CHARS = 4000;
 const MAX_LIST_ITEMS = 20;
@@ -47,7 +45,7 @@ const truncateText = (value: string, maxLength: number) => {
   return `${value.slice(0, maxLength).trim()}...`;
 };
 
-const limitItems = <T,>(items: T[], maxItems: number) => {
+const limitItems = <T>(items: T[], maxItems: number) => {
   if (items.length <= maxItems) return { items, truncated: 0 };
   return {
     items: items.slice(0, maxItems),
@@ -136,11 +134,7 @@ const formatTimestamp = (value: string) => {
   return formatInKst(parsed, "PPpp");
 };
 
-const formatEventTime = (
-  start?: string,
-  end?: string,
-  isAllDay?: boolean
-) => {
+const formatEventTime = (start?: string, end?: string, isAllDay?: boolean) => {
   if (isAllDay) return "All day";
   if (!start) return "Unknown time";
   const startDate = parseISO(start);
@@ -153,7 +147,9 @@ const formatGoogleCalendarLines = (
   events: GoogleCalendarEvent[],
   targetKey: string
 ) => {
-  const filtered = events.filter((event) => getEventDateKey(event) === targetKey);
+  const filtered = events.filter(
+    (event) => getEventDateKey(event) === targetKey
+  );
   const { items, truncated } = limitItems(filtered, MAX_LIST_ITEMS);
   const lines = items.map((event) => {
     const start = event.start?.dateTime ?? event.start?.date;
@@ -314,7 +310,8 @@ export async function buildDailySummaryPrompt(
           error: null as string | null,
         }))
         .catch((error) => {
-          const message = error instanceof Error ? error.message : String(error);
+          const message =
+            error instanceof Error ? error.message : String(error);
           return {
             status: resolveGitHubStatus(message),
             items: [] as GitHubActivityItem[],
@@ -361,7 +358,10 @@ export async function buildDailySummaryPrompt(
               error: "구독 폴더 없음",
             };
           }
-          const response = await getClaudeActivities(targetKey, subscribedFolders);
+          const response = await getClaudeActivities(
+            targetKey,
+            subscribedFolders
+          );
           return {
             status: "connected" as SourceStatus,
             items: response.items ?? [],
@@ -371,7 +371,8 @@ export async function buildDailySummaryPrompt(
           return {
             status: "error" as SourceStatus,
             items: [] as ClaudeActivityItem[],
-            error: error instanceof Error ? error.message : "Claude activity failed",
+            error:
+              error instanceof Error ? error.message : "Claude activity failed",
           };
         }
       })(),

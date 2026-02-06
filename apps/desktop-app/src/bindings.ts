@@ -151,6 +151,103 @@ async getClaudeActivityDates(subscribedFolders: string[], year: number, month: n
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async checkWhisperModel() : Promise<Result<ModelStatus, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("check_whisper_model") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async downloadWhisperModel() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("download_whisper_model") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelWhisperDownload() : Promise<void> {
+    await TAURI_INVOKE("cancel_whisper_download");
+},
+async cleanupPartialDownload() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("cleanup_partial_download") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async validateAudioFile(filePath: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("validate_audio_file", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async transcribeAudio(filePath: string) : Promise<Result<TranscriptionResult, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("transcribe_audio", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cancelTranscription() : Promise<void> {
+    await TAURI_INVOKE("cancel_transcription");
+},
+async saveRecordedAudio(audioData: number[]) : Promise<Result<SavedRecordingInfo, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("save_recorded_audio", { audioData }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async cleanupRecording(filePath: string) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("cleanup_recording", { filePath }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listRecordings() : Promise<Result<RecordingFile[], string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_recordings") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async startRealtimeTranscription(config: RealtimeTranscriptionConfig | null) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_realtime_transcription", { config }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async pushAudioChunk(samples: number[]) : Promise<Result<RealtimePartialResult | null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("push_audio_chunk", { samples }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async stopRealtimeTranscription() : Promise<Result<string, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_realtime_transcription") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async isRealtimeTranscriptionActive() : Promise<boolean> {
+    return await TAURI_INVOKE("is_realtime_transcription_active");
 }
 }
 
@@ -171,6 +268,12 @@ export type FileEntry = { name: string; path: string; is_dir: boolean; children:
 export type GitHubActivityItem = { kind: GitHubActivityKind; title: string; url: string; repo: string; timestamp: string; number: number | null; summary: string | null }
 export type GitHubActivityKind = "commit" | "pull_request" | "review" | "comment"
 export type GitHubActivityResponse = { login: string; date: string; items: GitHubActivityItem[] }
+export type ModelStatus = { is_installed: boolean; model_path: string | null; model_size: number | null }
+export type RealtimePartialResult = { text: string; is_final: boolean; segment_index: number }
+export type RealtimeTranscriptionConfig = { language: string | null }
+export type RecordingFile = { file_path: string; file_name: string; file_size: number; created_at: number }
+export type SavedRecordingInfo = { file_path: string; file_size: number }
+export type TranscriptionResult = { text: string; duration_ms: number }
 export type VaultConfig = { path: string; name: string }
 
 /** tauri-specta globals **/

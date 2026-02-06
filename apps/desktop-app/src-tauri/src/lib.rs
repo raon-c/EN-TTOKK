@@ -6,6 +6,13 @@ use commands::{
     get_claude_activities, get_claude_activity_dates, get_github_activity, get_jira_token,
     list_claude_projects, open_vault, read_directory, read_file, remove_jira_token, rename_file,
     set_jira_token, validate_vault_path, write_file,
+    // Whisper commands
+    cancel_transcription, cancel_whisper_download, check_whisper_model, cleanup_partial_download,
+    cleanup_recording, download_whisper_model, list_recordings, save_recorded_audio,
+    transcribe_audio, validate_audio_file,
+    // Realtime transcription commands
+    is_realtime_transcription_active, push_audio_chunk, start_realtime_transcription,
+    stop_realtime_transcription,
 };
 #[cfg(any(debug_assertions, test))]
 use specta_typescript::{BigIntExportBehavior, Typescript};
@@ -47,6 +54,22 @@ fn create_specta_builder() -> Builder {
         list_claude_projects,
         get_claude_activities,
         get_claude_activity_dates,
+        // Whisper commands
+        check_whisper_model,
+        download_whisper_model,
+        cancel_whisper_download,
+        cleanup_partial_download,
+        validate_audio_file,
+        transcribe_audio,
+        cancel_transcription,
+        save_recorded_audio,
+        cleanup_recording,
+        list_recordings,
+        // Realtime transcription commands
+        start_realtime_transcription,
+        push_audio_chunk,
+        stop_realtime_transcription,
+        is_realtime_transcription_active,
     ])
 }
 
