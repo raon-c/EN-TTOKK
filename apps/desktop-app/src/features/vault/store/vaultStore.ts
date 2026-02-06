@@ -1,9 +1,8 @@
-import { Effect } from "effect";
 import { create } from "zustand";
 
 import { commands, type FileEntry, type VaultConfig } from "@/bindings";
-import { NoVaultError, runCommand, runEffect } from "@/lib/effect";
 import { htmlToMarkdown, markdownToHtml } from "@/lib/markdown";
+import { unwrap } from "@/lib/tauri-helpers";
 import { getValue, setValue } from "@/lib/tauri-store";
 import type { Note } from "@/types/note";
 
@@ -60,8 +59,8 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       if (stored) {
         set({ path: stored.path, name: stored.name });
       }
-    } catch (error) {
-      console.error("Failed to load vault:", error);
+    } catch {
+      // Silently fail — vault will remain unset
     } finally {
       set({ _hasHydrated: true });
     }
@@ -69,33 +68,16 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
 
   openVault: async (vaultPath: string) => {
     set({ error: null });
+    try {
+      const { path, name } = await unwrap(commands.openVault(vaultPath));
+      const files = await unwrap(commands.readDirectory(vaultPath));
+      const allNotes = await unwrap(commands.getAllNotes(vaultPath));
 
-    const program = Effect.gen(function* () {
-      const { path, name } = yield* runCommand(() =>
-        commands.openVault(vaultPath)
-      );
-      const files = yield* runCommand(() => commands.readDirectory(vaultPath));
-      const allNotes = yield* runCommand(() => commands.getAllNotes(vaultPath));
+      set({ path, name, files, allNotes, activeNote: null });
 
-      set({
-        path,
-        name,
-        files,
-        allNotes,
-        activeNote: null,
-      });
-
-      return { path, name };
-    });
-
-    const result = await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
-
-    // Save to Tauri Store after successful open
-    if (result) {
-      await setValue(VAULT_KEY, { path: result.path, name: result.name });
+      await setValue(VAULT_KEY, { path, name });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
     }
   },
 
@@ -103,36 +85,26 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
     const { path } = get();
     if (!path) return;
 
-    const program = Effect.gen(function* () {
-      const files = yield* runCommand(() => commands.readDirectory(path));
-      const allNotes = yield* runCommand(() => commands.getAllNotes(path));
-
+    try {
+      const files = await unwrap(commands.readDirectory(path));
+      const allNotes = await unwrap(commands.getAllNotes(path));
       set({ files, allNotes });
-    });
-
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
   },
 
   openNote: async (notePath: string) => {
     const { path: vaultPath } = get();
 
-    const program = Effect.gen(function* () {
-      if (!vaultPath) {
-        return yield* Effect.fail(
-          new NoVaultError({ message: "No vault open" })
-        );
-      }
+    try {
+      if (!vaultPath) throw new Error("No vault open");
 
-      const rawContent = yield* runCommand(() =>
+      const rawContent = await unwrap(
         commands.readFile(notePath, vaultPath)
       );
 
-      // Convert markdown to HTML for TipTap editor
       const content = markdownToHtml(rawContent);
-
       const fileName = notePath.split("/").pop() ?? "Untitled";
       const title = fileName.replace(/\.md$/, "");
 
@@ -148,30 +120,19 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       };
 
       set({ activeNote: note, error: null });
-    });
-
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
   },
 
   saveNote: async (notePath: string, content: string) => {
     const { path: vaultPath } = get();
 
-    const program = Effect.gen(function* () {
-      if (!vaultPath) {
-        return yield* Effect.fail(
-          new NoVaultError({ message: "No vault open" })
-        );
-      }
+    try {
+      if (!vaultPath) throw new Error("No vault open");
 
-      // Convert HTML from TipTap back to markdown for storage
       const markdownContent = htmlToMarkdown(content);
-
-      yield* runCommand(() =>
-        commands.writeFile(notePath, markdownContent, vaultPath)
-      );
+      await unwrap(commands.writeFile(notePath, markdownContent, vaultPath));
 
       const { activeNote } = get();
       if (activeNote && activeNote.path === notePath) {
@@ -185,81 +146,60 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
           },
         });
       }
-    });
-
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
   },
 
   createNote: async (name: string, folder?: string) => {
     const { path: vaultPath } = get();
 
-    const program = Effect.gen(function* () {
-      if (!vaultPath) {
-        return yield* Effect.fail(
-          new NoVaultError({ message: "No vault open" })
-        );
-      }
+    set({ error: null });
+    try {
+      if (!vaultPath) throw new Error("No vault open");
 
       const fileName = name.endsWith(".md") ? name : `${name}.md`;
       const notePath = folder
         ? `${folder}/${fileName}`
         : `${vaultPath}/${fileName}`;
 
-      yield* runCommand(() => commands.createFile(notePath, vaultPath));
+      await unwrap(commands.createFile(notePath, vaultPath));
+      await get().refreshFiles();
 
       return notePath;
-    });
-
-    set({ error: null });
-    const notePath = await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
-    await get().refreshFiles();
-
-    return notePath;
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+      throw error;
+    }
   },
 
   deleteNote: async (notePath: string) => {
     const { path: vaultPath } = get();
 
-    const program = Effect.gen(function* () {
-      if (!vaultPath) {
-        return yield* Effect.fail(
-          new NoVaultError({ message: "No vault open" })
-        );
-      }
+    set({ error: null });
+    try {
+      if (!vaultPath) throw new Error("No vault open");
 
-      yield* runCommand(() => commands.deleteFile(notePath, vaultPath));
+      await unwrap(commands.deleteFile(notePath, vaultPath));
 
       const { activeNote } = get();
       if (activeNote?.path === notePath) {
         set({ activeNote: null });
       }
-    });
-
-    set({ error: null });
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
     await get().refreshFiles();
   },
 
   renameNote: async (oldPath: string, newPath: string) => {
     const { path: vaultPath } = get();
 
-    const program = Effect.gen(function* () {
-      if (!vaultPath) {
-        return yield* Effect.fail(
-          new NoVaultError({ message: "No vault open" })
-        );
-      }
+    set({ error: null });
+    try {
+      if (!vaultPath) throw new Error("No vault open");
 
-      yield* runCommand(() => commands.renameFile(oldPath, newPath, vaultPath));
+      await unwrap(commands.renameFile(oldPath, newPath, vaultPath));
 
       const { activeNote } = get();
       if (activeNote?.path === oldPath) {
@@ -273,13 +213,9 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
           },
         });
       }
-    });
-
-    set({ error: null });
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
 
     await get().refreshFiles();
   },
@@ -287,21 +223,13 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   createFolder: async (folderPath: string) => {
     const { path: vaultPath } = get();
 
-    const program = Effect.gen(function* () {
-      if (!vaultPath) {
-        return yield* Effect.fail(
-          new NoVaultError({ message: "No vault open" })
-        );
-      }
-
-      yield* runCommand(() => commands.createFolder(folderPath, vaultPath));
-    });
-
     set({ error: null });
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+    try {
+      if (!vaultPath) throw new Error("No vault open");
+      await unwrap(commands.createFolder(folderPath, vaultPath));
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
     await get().refreshFiles();
   },
 
@@ -335,22 +263,19 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
   },
 
   openNoteByName: async (name: string) => {
-    const program = Effect.gen(function* () {
+    try {
       const { findNotePath, openNote, createNote } = get();
       const notePath = findNotePath(name);
 
       if (notePath) {
-        yield* Effect.promise(() => openNote(notePath));
+        await openNote(notePath);
       } else {
-        const newPath = yield* Effect.promise(() => createNote(name));
-        yield* Effect.promise(() => openNote(newPath));
+        const newPath = await createNote(name);
+        await openNote(newPath);
       }
-    });
-
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
   },
 
   clearError: () => {
@@ -367,7 +292,6 @@ export const useVaultStore = create<VaultStore>()((set, get) => ({
       error: null,
     });
 
-    // Clear from Tauri Store
     await setValue(VAULT_KEY, null);
   },
 

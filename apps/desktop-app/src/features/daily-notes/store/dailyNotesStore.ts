@@ -1,11 +1,10 @@
 import { formatInKst, getKstDateKey } from "@bun-enttokk/shared";
 import { isValid, parse } from "date-fns";
-import { Effect } from "effect";
 import { create } from "zustand";
 
 import { commands, type FileEntry } from "@/bindings";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
-import { NoVaultError, runCommand, runEffect, VaultError } from "@/lib/effect";
+import { unwrap } from "@/lib/tauri-helpers";
 
 import {
   type DailyNotesSettings,
@@ -13,7 +12,6 @@ import {
 } from "../types";
 
 function sanitizeFolderName(folder: string): string {
-  // Remove path traversal characters and normalize
   return folder
     .replace(/\.\./g, "")
     .replace(/[/\\]/g, "")
@@ -61,7 +59,6 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
     const vaultPath = useVaultStore.getState().path;
     if (!vaultPath) return;
 
-    // Merge with defaults to ensure all fields exist
     const mergedSettings = {
       ...DEFAULT_DAILY_NOTES_SETTINGS,
       ...settings,
@@ -69,24 +66,20 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
 
     set({ isScanning: true, error: null });
 
-    const program = Effect.gen(function* () {
+    try {
       const sanitizedFolder = sanitizeFolderName(mergedSettings.folder);
-      if (!sanitizedFolder) return new Set<string>();
-
-      const folderPath = `${vaultPath}/${sanitizedFolder}`;
-
-      const result = yield* Effect.tryPromise({
-        try: () => commands.readDirectory(folderPath),
-        catch: () => ({ status: "ok" as const, data: [] as FileEntry[] }),
-      });
-
-      if (result.status === "error") {
-        return new Set<string>();
+      if (!sanitizedFolder) {
+        set({ existingDates: new Set(), isScanning: false });
+        return;
       }
 
-      const files = result.data;
-      const datePattern = /^\d{4}-\d{2}-\d{2}\.md$/;
+      const folderPath = `${vaultPath}/${sanitizedFolder}`;
+      const result = await commands.readDirectory(folderPath);
 
+      const files: FileEntry[] =
+        result.status === "ok" ? result.data : [];
+
+      const datePattern = /^\d{4}-\d{2}-\d{2}\.md$/;
       const existingDates = new Set<string>();
 
       for (const file of files) {
@@ -101,11 +94,6 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
         }
       }
 
-      return existingDates;
-    });
-
-    try {
-      const existingDates = await Effect.runPromise(program);
       set({ existingDates, isScanning: false });
     } catch (error) {
       set({
@@ -125,40 +113,28 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
       refreshFiles,
     } = useVaultStore.getState();
 
-    // Merge with defaults to ensure all fields exist
     const mergedSettings = {
       ...DEFAULT_DAILY_NOTES_SETTINGS,
       ...settings,
     };
 
-    const program = Effect.gen(function* () {
-      if (!vaultPath) {
-        return yield* Effect.fail(
-          new NoVaultError({ message: "No vault open" })
-        );
-      }
+    set({ error: null });
+
+    try {
+      if (!vaultPath) throw new Error("No vault open");
 
       const sanitizedFolder = sanitizeFolderName(mergedSettings.folder);
-      if (!sanitizedFolder) {
-        return yield* Effect.fail(
-          new VaultError({ message: "Invalid folder name" })
-        );
-      }
+      if (!sanitizedFolder) throw new Error("Invalid folder name");
 
       const formattedDate = formatInKst(date, mergedSettings.dateFormat);
       const folderPath = `${vaultPath}/${sanitizedFolder}`;
       const notePath = `${folderPath}/${formattedDate}.md`;
 
-      const folderExists = yield* Effect.tryPromise({
-        try: async () => {
-          const result = await commands.readDirectory(folderPath);
-          return result.status === "ok";
-        },
-        catch: () => new VaultError({ message: "Failed to check folder" }),
-      });
+      const folderResult = await commands.readDirectory(folderPath);
+      const folderExists = folderResult.status === "ok";
 
       if (!folderExists) {
-        yield* runCommand(() => commands.createFolder(folderPath, vaultPath));
+        await unwrap(commands.createFolder(folderPath, vaultPath));
       }
 
       const { existingDates } = get();
@@ -166,24 +142,18 @@ export const useDailyNotesStore = create<DailyNotesStore>()((set, get) => ({
 
       if (!existingDates.has(dateKey)) {
         const content = processTemplate(mergedSettings.template, date);
-        yield* runCommand(() =>
-          commands.writeFile(notePath, content, vaultPath)
-        );
+        await unwrap(commands.writeFile(notePath, content, vaultPath));
 
         set((state) => ({
           existingDates: new Set([...state.existingDates, dateKey]),
         }));
       }
 
-      yield* Effect.promise(() => refreshFiles());
-      yield* Effect.promise(() => openNote(notePath));
-    });
-
-    set({ error: null });
-    await runEffect({
-      effect: program,
-      onError: (message) => set({ error: message }),
-    });
+      await refreshFiles();
+      await openNote(notePath);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : String(error) });
+    }
   },
 
   hasNoteForDate: (date: Date, settings = DEFAULT_DAILY_NOTES_SETTINGS) => {
