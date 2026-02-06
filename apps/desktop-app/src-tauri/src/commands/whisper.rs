@@ -238,10 +238,25 @@ pub async fn save_recorded_audio(app: AppHandle, audio_data: Vec<u8>) -> Result<
 
 #[tauri::command]
 #[specta::specta]
-pub async fn cleanup_recording(file_path: String) -> Result<(), String> {
+pub async fn cleanup_recording(app: AppHandle, file_path: String) -> Result<(), String> {
+    let recordings_dir = get_recordings_dir(&app)?;
     let path = PathBuf::from(&file_path);
+
+    // Validate: no traversal sequences or null bytes
+    if file_path.contains("..") || file_path.contains('\0') {
+        return Err("Invalid file path".to_string());
+    }
+
+    // Validate: must be within recordings directory
     if path.exists() {
-        std::fs::remove_file(&path)
+        let canonical = path
+            .canonicalize()
+            .map_err(|e| format!("Failed to resolve path: {}", e))?;
+        let canonical_dir = recordings_dir.canonicalize().unwrap_or(recordings_dir);
+        if !canonical.starts_with(&canonical_dir) {
+            return Err("File path is outside recordings directory".to_string());
+        }
+        std::fs::remove_file(&canonical)
             .map_err(|e| format!("Failed to remove recording: {}", e))?;
     }
     Ok(())
