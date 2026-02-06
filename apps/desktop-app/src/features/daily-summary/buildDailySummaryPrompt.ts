@@ -1,13 +1,12 @@
 import { formatInKst, getKstDateKey } from "@bun-enttokk/shared";
-import type { GoogleCalendarEvent, JiraIssue } from "@enttokk/api-types";
-import { isValid, parse, parseISO } from "date-fns";
+import type { JiraIssue } from "@enttokk/api-types";
+import { isValid, parse } from "date-fns";
 import { commands } from "@/bindings";
 import { useClaudeActivityStore } from "@/features/claude-activity/store/claudeActivityStore";
 import type { ClaudeActivityItem } from "@/features/claude-activity/types";
 import { DEFAULT_DAILY_NOTES_SETTINGS } from "@/features/daily-notes/types";
 import type { GitHubActivityItem } from "@/features/github/types";
 import { useGoogleCalendarStore } from "@/features/google-calendar/store/googleCalendarStore";
-import { getEventDateKey } from "@/features/google-calendar/utils/dates";
 import { useJiraStore } from "@/features/jira/store/jiraStore";
 import { useSettingsStore } from "@/features/settings/store/settingsStore";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
@@ -15,16 +14,16 @@ import { getClaudeActivities } from "@/lib/claude";
 import { getGitHubActivity } from "@/lib/github";
 import { htmlToMarkdown } from "@/lib/markdown";
 
-const MAX_DAILY_NOTE_CHARS = 4000;
-const MAX_LIST_ITEMS = 20;
-
-type DailyNoteResult = {
-  status: "available" | "missing" | "unavailable" | "error";
-  content: string | null;
-  error?: string;
-};
-
-type SourceStatus = "connected" | "disconnected" | "error" | "unknown";
+import {
+  type DailyNoteResult,
+  type SourceStatus,
+  formatClaudeActivityLines,
+  formatDailyNoteBlock,
+  formatGitHubLines,
+  formatGoogleCalendarLines,
+  formatJiraLines,
+  formatStatusLabel,
+} from "./formatters";
 
 export type DailySummaryRequest = {
   displayMessage: string;
@@ -38,19 +37,6 @@ const sanitizeFolderName = (folder: string): string => {
     .replace(/[/\\]/g, "")
     .replace(/^[.~]/, "")
     .trim();
-};
-
-const truncateText = (value: string, maxLength: number) => {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength).trim()}...`;
-};
-
-const limitItems = <T>(items: T[], maxItems: number) => {
-  if (items.length <= maxItems) return { items, truncated: 0 };
-  return {
-    items: items.slice(0, maxItems),
-    truncated: items.length - maxItems,
-  };
 };
 
 const parseDateFromTitle = (title: string, formatString: string) => {
@@ -90,19 +76,13 @@ const loadDailyNoteContent = async (date: Date): Promise<DailyNoteResult> => {
 
   if (activeNote?.path === notePath && activeNote.content) {
     const markdown = htmlToMarkdown(activeNote.content);
-    return {
-      status: "available",
-      content: markdown,
-    };
+    return { status: "available", content: markdown };
   }
 
   try {
     const result = await commands.readFile(notePath, vaultPath);
     if (result.status === "ok") {
-      return {
-        status: "available",
-        content: result.data,
-      };
+      return { status: "available", content: result.data };
     }
     return { status: "missing", content: null, error: result.error };
   } catch (error) {
@@ -126,171 +106,6 @@ const resolveGitHubStatus = (message: string): SourceStatus => {
     return "disconnected";
   }
   return "error";
-};
-
-const formatTimestamp = (value: string) => {
-  const parsed = parseISO(value);
-  if (!isValid(parsed)) return "Unknown time";
-  return formatInKst(parsed, "PPpp");
-};
-
-const formatEventTime = (start?: string, end?: string, isAllDay?: boolean) => {
-  if (isAllDay) return "All day";
-  if (!start) return "Unknown time";
-  const startDate = parseISO(start);
-  if (!end) return formatInKst(startDate, "HH:mm");
-  const endDate = parseISO(end);
-  return `${formatInKst(startDate, "HH:mm")}-${formatInKst(endDate, "HH:mm")}`;
-};
-
-const formatGoogleCalendarLines = (
-  events: GoogleCalendarEvent[],
-  targetKey: string
-) => {
-  const filtered = events.filter(
-    (event) => getEventDateKey(event) === targetKey
-  );
-  const { items, truncated } = limitItems(filtered, MAX_LIST_ITEMS);
-  const lines = items.map((event) => {
-    const start = event.start?.dateTime ?? event.start?.date;
-    const end = event.end?.dateTime ?? event.end?.date;
-    const isAllDay = Boolean(event.start?.date && !event.start?.dateTime);
-    const timeLabel = formatEventTime(start, end, isAllDay);
-    const title = event.summary?.trim() || "Untitled event";
-    const location = event.location ? ` (${event.location})` : "";
-    return `- ${timeLabel} ${title}${location}`;
-  });
-  if (lines.length === 0) {
-    return { lines: ["- 없음"], truncated: 0 };
-  }
-  if (truncated > 0) {
-    lines.push(`- ... 외 ${truncated}건`);
-  }
-  return { lines, truncated };
-};
-
-const getIssueUpdatedKey = (updated?: string) => {
-  if (!updated) return null;
-  const parsed = parseISO(updated);
-  if (!isValid(parsed)) return null;
-  return formatInKst(parsed, "yyyy-MM-dd");
-};
-
-const formatJiraLines = (issues: JiraIssue[], targetKey: string) => {
-  const filtered = issues.filter(
-    (issue) => getIssueUpdatedKey(issue.updated) === targetKey
-  );
-  const { items, truncated } = limitItems(filtered, MAX_LIST_ITEMS);
-  const lines = items.map((issue) => {
-    const updatedLabel = issue.updated ? formatTimestamp(issue.updated) : "";
-    const updatedSuffix = updatedLabel ? ` (updated ${updatedLabel})` : "";
-    return `- ${issue.key} ${issue.summary} [${issue.status}]${updatedSuffix}`;
-  });
-  if (lines.length === 0) {
-    return { lines: ["- 없음"], truncated: 0 };
-  }
-  if (truncated > 0) {
-    lines.push(`- ... 외 ${truncated}건`);
-  }
-  return { lines, truncated };
-};
-
-const formatGitHubLines = (items: GitHubActivityItem[]) => {
-  const { items: trimmed, truncated } = limitItems(items, MAX_LIST_ITEMS);
-  const kindLabel: Record<GitHubActivityItem["kind"], string> = {
-    commit: "Commit",
-    pull_request: "PR",
-    review: "Review",
-    comment: "Comment",
-  };
-  const lines = trimmed.map((item) => {
-    const timeLabel = formatTimestamp(item.timestamp);
-    const summary = item.summary ? ` (${item.summary})` : "";
-    return `- ${kindLabel[item.kind]} ${item.title}${summary} · ${item.repo} · ${timeLabel}`;
-  });
-  if (lines.length === 0) {
-    return { lines: ["- 없음"], truncated: 0 };
-  }
-  if (truncated > 0) {
-    lines.push(`- ... 외 ${truncated}건`);
-  }
-  return { lines, truncated };
-};
-
-const MAX_CLAUDE_SESSIONS = 10;
-const CLAUDE_TASK_SUMMARY_LENGTH = 80;
-
-const formatClaudeActivityLines = (items: ClaudeActivityItem[]) => {
-  // Group by session_id to show conversations
-  const sessionGroups = new Map<string, ClaudeActivityItem[]>();
-  for (const item of items) {
-    if (!sessionGroups.has(item.session_id)) {
-      sessionGroups.set(item.session_id, []);
-    }
-    sessionGroups.get(item.session_id)?.push(item);
-  }
-
-  const lines: string[] = [];
-  let sessionCount = 0;
-
-  for (const sessionItems of sessionGroups.values()) {
-    if (sessionCount >= MAX_CLAUDE_SESSIONS) {
-      const remaining = sessionGroups.size - MAX_CLAUDE_SESSIONS;
-      lines.push(`- ... 외 ${remaining}개 세션`);
-      break;
-    }
-
-    const projectPath = sessionItems[0]?.project_path ?? "Unknown";
-    const pathParts = projectPath.split("/");
-    const projectName = pathParts[pathParts.length - 1] ?? projectPath;
-
-    // Get user messages as task summary
-    const userMessages = sessionItems.filter((item) => item.kind === "user");
-    const firstUserMessage = userMessages[0]?.content ?? "";
-    const firstLine = firstUserMessage.split("\n")[0] ?? "";
-    const taskSummary = truncateText(firstLine, CLAUDE_TASK_SUMMARY_LENGTH);
-
-    const timestamp = sessionItems[0]?.timestamp;
-    const timeLabel = timestamp ? formatTimestamp(timestamp) : "";
-    const label = taskSummary || "대화 세션";
-
-    lines.push(
-      `- [${projectName}] ${label} (${userMessages.length}개 질문) · ${timeLabel}`
-    );
-    sessionCount++;
-  }
-
-  if (lines.length === 0) {
-    return { lines: ["- 없음"], truncated: 0 };
-  }
-
-  return { lines, truncated: 0 };
-};
-
-const formatDailyNoteBlock = (result: DailyNoteResult) => {
-  if (result.status === "available" && result.content) {
-    return truncateText(result.content.trim(), MAX_DAILY_NOTE_CHARS) || "없음";
-  }
-  if (result.status === "unavailable") {
-    return "Vault가 열려 있지 않습니다.";
-  }
-  if (result.status === "error") {
-    return result.error ? `에러: ${result.error}` : "에러가 발생했습니다.";
-  }
-  return "없음";
-};
-
-const formatStatusLabel = (status: SourceStatus) => {
-  switch (status) {
-    case "connected":
-      return "연결됨";
-    case "disconnected":
-      return "연결 안 됨";
-    case "error":
-      return "에러";
-    default:
-      return "알 수 없음";
-  }
 };
 
 export async function buildDailySummaryPrompt(
