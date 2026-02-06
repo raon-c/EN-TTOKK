@@ -29,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { SidebarHeader } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
-import { useChat } from "../hooks/useChat";
+import { useChatStore } from "../store/chatStore";
 
 interface ChatPanelProps {
   workingDirectory?: string;
@@ -46,22 +46,28 @@ export function ChatPanel({
   isExpanded,
   onToggleExpanded,
 }: ChatPanelProps) {
-  const {
-    messages,
-    streamingState,
-    claudeStatus,
-    isCheckingStatus,
-    error,
-    sendMessage,
-    sendDailySummary,
-    cancelStreaming,
-    newConversation,
-    clearError,
-  } = useChat();
+  const streamingState = useChatStore((s) => s.streamingState);
+  const claudeStatus = useChatStore((s) => s.claudeStatus);
+  const isCheckingStatus = useChatStore((s) => s.isCheckingStatus);
+  const error = useChatStore((s) => s.error);
+  const getActiveConversation = useChatStore((s) => s.getActiveConversation);
+  const sendMessage = useChatStore((s) => s.sendMessage);
+  const sendDailySummary = useChatStore((s) => s.sendDailySummary);
+  const cancelStreaming = useChatStore((s) => s.cancelStreaming);
+  const createConversation = useChatStore((s) => s.createConversation);
+  const setError = useChatStore((s) => s.setError);
+  const checkClaudeStatus = useChatStore((s) => s.checkClaudeStatus);
+
+  const messages = getActiveConversation()?.messages ?? [];
 
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Check Claude CLI status on mount
+  useEffect(() => {
+    void checkClaudeStatus();
+  }, [checkClaudeStatus]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -151,7 +157,7 @@ export function ChatPanel({
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={newConversation}
+              onClick={createConversation}
               title="New conversation"
             >
               <Plus className="size-4" />
@@ -168,7 +174,7 @@ export function ChatPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={clearError}
+            onClick={() => setError(null)}
             className="h-auto py-0.5 px-1"
           >
             Dismiss

@@ -1,6 +1,9 @@
 import type { ChatMessage, ClaudeCliStatus } from "@enttokk/api-types";
 import { create } from "zustand";
 
+import { buildDailySummaryPrompt } from "@/features/daily-summary/buildDailySummaryPrompt";
+import { apiClient } from "@/lib/api-client";
+
 interface ActiveTool {
   id: string;
   name: string;
@@ -17,50 +20,31 @@ interface StreamingState {
 interface Conversation {
   id: string;
   messages: ChatMessage[];
-  sessionId: string | null; // Claude CLI session ID for context persistence
+  sessionId: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 interface ChatStore {
-  // Conversations
   conversations: Map<string, Conversation>;
   activeConversationId: string | null;
-
-  // Streaming state
   streamingState: StreamingState;
-
-  // Claude CLI status
   claudeStatus: ClaudeCliStatus;
-
-  // Loading/error states
   isCheckingStatus: boolean;
   error: string | null;
-
-  // Abort controller for cancellation
   abortStream: (() => void) | null;
 
-  // Actions
-  setClaudeStatus: (status: ClaudeCliStatus) => void;
-  setIsCheckingStatus: (isChecking: boolean) => void;
+  // Internal actions
   setError: (error: string | null) => void;
-
-  // Conversation actions
   createConversation: () => string;
   setActiveConversation: (id: string | null) => void;
-  addMessage: (conversationId: string, message: ChatMessage) => void;
-  setSessionId: (conversationId: string, sessionId: string) => void;
   getActiveConversation: () => Conversation | null;
-  getActiveSessionId: () => string | null;
-
-  // Streaming actions
-  startStreaming: (abort: () => void) => void;
-  appendStreamingText: (text: string) => void;
-  setStreamingThinking: (thinking: string | null) => void;
-  setStreamingTool: (tool: ActiveTool | null) => void;
-  finalizeStreaming: () => ChatMessage | null;
   cancelStreaming: () => void;
-  resetStreamingState: () => void;
+
+  // Public actions
+  checkClaudeStatus: () => Promise<void>;
+  sendMessage: (content: string, workingDirectory?: string) => Promise<void>;
+  sendDailySummary: (workingDirectory?: string) => Promise<void>;
 }
 
 const initialStreamingState: StreamingState = {
@@ -71,7 +55,6 @@ const initialStreamingState: StreamingState = {
 };
 
 export const useChatStore = create<ChatStore>()((set, get) => ({
-  // Initial state
   conversations: new Map(),
   activeConversationId: null,
   streamingState: { ...initialStreamingState },
@@ -80,12 +63,8 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
   error: null,
   abortStream: null,
 
-  // Status actions
-  setClaudeStatus: (status) => set({ claudeStatus: status }),
-  setIsCheckingStatus: (isChecking) => set({ isCheckingStatus: isChecking }),
   setError: (error) => set({ error }),
 
-  // Conversation actions
   createConversation: () => {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -111,99 +90,222 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
 
   setActiveConversation: (id) => set({ activeConversationId: id }),
 
-  addMessage: (conversationId, message) => {
-    set((state) => {
-      const conversation = state.conversations.get(conversationId);
-      if (!conversation) return state;
-
-      const updatedConversation: Conversation = {
-        ...conversation,
-        messages: [...conversation.messages, message],
-        updatedAt: new Date().toISOString(),
-      };
-
-      const newConversations = new Map(state.conversations);
-      newConversations.set(conversationId, updatedConversation);
-
-      return { conversations: newConversations };
-    });
-  },
-
-  setSessionId: (conversationId, sessionId) => {
-    set((state) => {
-      const conversation = state.conversations.get(conversationId);
-      if (!conversation) return state;
-
-      const updatedConversation: Conversation = {
-        ...conversation,
-        sessionId,
-        updatedAt: new Date().toISOString(),
-      };
-
-      const newConversations = new Map(state.conversations);
-      newConversations.set(conversationId, updatedConversation);
-
-      return { conversations: newConversations };
-    });
-  },
-
   getActiveConversation: () => {
     const { conversations, activeConversationId } = get();
     if (!activeConversationId) return null;
     return conversations.get(activeConversationId) ?? null;
   },
 
-  getActiveSessionId: () => {
-    const conversation = get().getActiveConversation();
-    return conversation?.sessionId ?? null;
-  },
-
-  // Streaming actions
-  startStreaming: (abort) => {
+  cancelStreaming: () => {
+    const { abortStream } = get();
+    if (abortStream) abortStream();
     set({
-      streamingState: {
-        ...initialStreamingState,
-        isStreaming: true,
-      },
-      abortStream: abort,
-      error: null,
+      streamingState: { ...initialStreamingState },
+      abortStream: null,
     });
   },
 
-  appendStreamingText: (text) => {
-    set((state) => ({
-      streamingState: {
-        ...state.streamingState,
-        currentText: state.streamingState.currentText + text,
-      },
-    }));
+  checkClaudeStatus: async () => {
+    set({ isCheckingStatus: true });
+    try {
+      const status = await apiClient.chat.checkStatus();
+      set({ claudeStatus: status.status });
+      if (status.status === "unavailable") {
+        set({ error: status.error ?? "Claude CLI is not available" });
+      }
+    } catch (err) {
+      set({
+        claudeStatus: "unavailable",
+        error:
+          err instanceof Error
+            ? err.message
+            : "Failed to check Claude CLI status",
+      });
+    } finally {
+      set({ isCheckingStatus: false });
+    }
   },
 
-  setStreamingThinking: (thinking) => {
-    set((state) => ({
-      streamingState: {
-        ...state.streamingState,
-        currentThinking: thinking,
-      },
-    }));
-  },
-
-  setStreamingTool: (tool) => {
-    set((state) => ({
-      streamingState: {
-        ...state.streamingState,
-        activeTool: tool,
-      },
-    }));
-  },
-
-  finalizeStreaming: () => {
-    const { streamingState, activeConversationId } = get();
-    if (!activeConversationId || !streamingState.currentText) {
-      get().resetStreamingState();
-      return null;
+  sendMessage: async (content: string, workingDirectory?: string) => {
+    if (!content.trim()) return;
+    const { claudeStatus } = get();
+    if (claudeStatus !== "available") {
+      set({ error: "Claude CLI is not available" });
+      return;
     }
 
+    await sendStreamingMessage(get, set, {
+      requestMessage: content,
+      displayMessage: content,
+      workingDirectory,
+    });
+  },
+
+  sendDailySummary: async (workingDirectory?: string) => {
+    try {
+      const request = await buildDailySummaryPrompt();
+      await sendStreamingMessage(get, set, {
+        requestMessage: request.requestMessage,
+        displayMessage: request.displayMessage,
+        workingDirectory,
+      });
+    } catch (error) {
+      set({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to build daily summary",
+      });
+    }
+  },
+}));
+
+// Shared streaming logic used by sendMessage and sendDailySummary
+function sendStreamingMessage(
+  get: () => ChatStore,
+  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+  params: {
+    requestMessage: string;
+    displayMessage?: string;
+    workingDirectory?: string;
+  }
+): void {
+  let conversationId = get().activeConversationId;
+  if (!conversationId) {
+    conversationId = get().createConversation();
+  }
+
+  const conversation = get().conversations.get(conversationId);
+  const currentSessionId = conversation?.sessionId ?? null;
+
+  // Add user message
+  const userMessage: ChatMessage = {
+    id: crypto.randomUUID(),
+    role: "user",
+    content: (params.displayMessage ?? params.requestMessage).trim(),
+    timestamp: new Date().toISOString(),
+  };
+  addMessage(get, set, conversationId, userMessage);
+
+  // Start streaming
+  const { abort } = apiClient.chat.streamMessage(
+    {
+      message: params.requestMessage.trim(),
+      workingDirectory: params.workingDirectory,
+      conversationId,
+      sessionId: currentSessionId ?? undefined,
+    },
+    {
+      onStart: (sessionId) => {
+        if (sessionId && conversationId) {
+          setSessionId(get, set, conversationId, sessionId);
+        }
+      },
+      onTextDelta: (text) => {
+        set((state) => ({
+          streamingState: {
+            ...state.streamingState,
+            currentText: state.streamingState.currentText + text,
+          },
+        }));
+      },
+      onThinking: (thinking) => {
+        set((state) => ({
+          streamingState: {
+            ...state.streamingState,
+            currentThinking: thinking,
+          },
+        }));
+      },
+      onToolUse: (tool) => {
+        set((state) => ({
+          streamingState: {
+            ...state.streamingState,
+            activeTool: tool,
+          },
+        }));
+      },
+      onToolResult: () => {
+        set((state) => ({
+          streamingState: {
+            ...state.streamingState,
+            activeTool: null,
+          },
+        }));
+      },
+      onDone: (sessionId) => {
+        if (sessionId && conversationId) {
+          setSessionId(get, set, conversationId, sessionId);
+        }
+        finalizeStreaming(get, set);
+      },
+      onError: (err) => {
+        set({ error: err });
+        finalizeStreaming(get, set);
+      },
+    }
+  );
+
+  set({
+    streamingState: {
+      ...initialStreamingState,
+      isStreaming: true,
+    },
+    abortStream: abort,
+    error: null,
+  });
+}
+
+function addMessage(
+  _get: () => ChatStore,
+  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+  conversationId: string,
+  message: ChatMessage
+) {
+  set((state) => {
+    const conversation = state.conversations.get(conversationId);
+    if (!conversation) return state;
+
+    const updated: Conversation = {
+      ...conversation,
+      messages: [...conversation.messages, message],
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newConversations = new Map(state.conversations);
+    newConversations.set(conversationId, updated);
+    return { conversations: newConversations };
+  });
+}
+
+function setSessionId(
+  _get: () => ChatStore,
+  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void,
+  conversationId: string,
+  sessionId: string
+) {
+  set((state) => {
+    const conversation = state.conversations.get(conversationId);
+    if (!conversation) return state;
+
+    const updated: Conversation = {
+      ...conversation,
+      sessionId,
+      updatedAt: new Date().toISOString(),
+    };
+
+    const newConversations = new Map(state.conversations);
+    newConversations.set(conversationId, updated);
+    return { conversations: newConversations };
+  });
+}
+
+function finalizeStreaming(
+  get: () => ChatStore,
+  set: (partial: Partial<ChatStore> | ((state: ChatStore) => Partial<ChatStore>)) => void
+) {
+  const { streamingState, activeConversationId } = get();
+  if (activeConversationId && streamingState.currentText) {
     const message: ChatMessage = {
       id: crypto.randomUUID(),
       role: "assistant",
@@ -211,25 +313,11 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       thinking: streamingState.currentThinking ?? undefined,
       timestamp: new Date().toISOString(),
     };
+    addMessage(get, set, activeConversationId, message);
+  }
 
-    get().addMessage(activeConversationId, message);
-    get().resetStreamingState();
-
-    return message;
-  },
-
-  cancelStreaming: () => {
-    const { abortStream } = get();
-    if (abortStream) {
-      abortStream();
-    }
-    get().resetStreamingState();
-  },
-
-  resetStreamingState: () => {
-    set({
-      streamingState: { ...initialStreamingState },
-      abortStream: null,
-    });
-  },
-}));
+  set({
+    streamingState: { ...initialStreamingState },
+    abortStream: null,
+  });
+}
