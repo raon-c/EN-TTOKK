@@ -8,12 +8,14 @@
   },
   "files": {
     "includes": [
-      "**/apps/**",
-      "**/packages/**",
+      "src/**",
+      "src-tauri/**",
+      "*.json",
+      "*.md",
       "!**/node_modules",
       "!**/dist",
       "!**/src-tauri/target",
-      "!**/bindings.ts"
+      "!src/bindings.ts"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },

@@ -16,16 +16,16 @@ Bun 모노레포로 구성되며, React 19 프론트엔드 + Rust 백엔드의 T
 bun install                    # 의존성 설치
 
 # 개발 (Tauri 앱 실행)
-cd apps/desktop-app && bun run dev:full
+bun run dev:full
 
 # 프론트엔드만 실행 (Vite 개발 서버, 포트 1420)
-cd apps/desktop-app && bun run dev
+bun run dev
 
 # 프로덕션 빌드
-cd apps/desktop-app && bun run tauri:build
+bun run tauri:build
 
 # TypeScript 타입 검사
-cd apps/desktop-app && bunx tsc --noEmit
+bunx tsc --noEmit
 
 # 코드 품질 (Biome)
 bun run check                  # 린트 + 포매팅 검사
@@ -36,11 +36,14 @@ bun run check:fix              # 자동 수정
 
 ### 워크스페이스 구조
 
-- **`apps/desktop-app`** — Tauri 데스크톱 앱 (React 프론트엔드 + Rust 백엔드)
-- **`packages/shared`** — KST 시간/날짜 유틸리티
-- **`packages/api-types`** — 프론트엔드-IPC 통신 공유 TypeScript 타입
+- **`(root)`** — Tauri 데스크톱 앱 (React 프론트엔드 + Rust 백엔드)
 
-### 프론트엔드 (apps/desktop-app/src/)
+### 공통 모듈 위치
+
+- **`src/lib/shared`** — KST 시간/날짜 유틸리티
+- **`src/types/api`** — 프론트엔드-IPC 통신 TypeScript 타입
+
+### 프론트엔드 (src/)
 
 **피처 기반 아키텍처** — 각 기능은 `features/{name}/` 아래 components, store, hooks, types로 구성됩니다.
 
@@ -52,7 +55,7 @@ bun run check:fix              # 자동 수정
 
 **레이아웃:** 단일 페이지 앱 (라우터 없음). 좌측 사이드바(파일 탐색기), 중앙(편집기), 우측 사이드바(탭: 캘린더, 채팅, Google Calendar, Jira, GitHub, Claude Activity).
 
-### Rust 백엔드 (apps/desktop-app/src-tauri/)
+### Rust 백엔드 (src-tauri/)
 
 Tauri 커맨드는 `src/commands/` 아래 모듈별로 분리: `vault.rs`, `file.rs`, `github.rs`, `secure.rs` (keyring), `claude.rs`, `chat_ipc.rs`, `google_calendar.rs`, `jira.rs`.
 
