@@ -5,13 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:full": "bun run build:sidecar && concurrently -k -n backend,tauri -c blue,green \"bun run --cwd ../backend dev\" \"tauri dev\"",
+    "dev:full": "tauri dev",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "bun run build:sidecar && tauri build",
-    "build:sidecar": "bun run --cwd ../backend build"
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@bun-enttokk/shared": "workspace:*",
@@ -91,7 +90,6 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2",
     "@tauri-apps/cli": "^2",
     "@types/marked": "^6.0.0",
     "@types/node": "^25.0.10",

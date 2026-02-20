@@ -22,15 +22,17 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
-tauri-plugin-shell = "2"
 tauri-plugin-stronghold = "2"
 keyring = "2"
-rand = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 specta = { version = "=2.0.0-rc.22", features = ["derive"] }
 tauri-specta = { git = "https://github.com/specta-rs/tauri-specta", branch = "main", features = ["typescript"] }
 specta-typescript = "0.0.9"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+base64 = "0.22"
+url = "2"
+dotenvy = "0.15"
 
 # Editor dependencies
 walkdir = "2"
@@ -38,12 +40,6 @@ notify = "6"
 regex = "1"
 tokio = { version = "1", features = ["fs"] }
 dirs = "5"
-
-# Meeting notes dependencies
-whisper-rs = "0.14"
-reqwest = { version = "0.12", features = ["stream"] }
-futures-util = "0.3"
-hound = "3.5"
 
 [profile.dev.package.scrypt]
 opt-level = 3

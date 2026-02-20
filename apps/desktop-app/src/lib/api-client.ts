@@ -12,41 +12,67 @@ import type {
   JiraTestRequest,
   JiraTestResponse,
 } from "@enttokk/api-types";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
-const BACKEND_PORT = 31337;
-const BACKEND_URL = `http://localhost:${BACKEND_PORT}`;
+const CHAT_STREAM_EVENT = "chat-stream-chunk";
 
-interface FetchOptions extends RequestInit {
-  timeout?: number;
-}
+type ChatStreamEventPayload = {
+  requestId: string;
+  chunk: FrontendStreamChunk;
+};
 
-async function fetchWithTimeout(
-  url: string,
-  options: FetchOptions = {}
-): Promise<Response> {
-  const { timeout = 5000, ...fetchOptions } = options;
+type HttpProxyResponse = {
+  status: number;
+  dataJson: string;
+};
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-
+const parseJson = <T>(jsonText: string, fallback: T): T => {
   try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      signal: controller.signal,
-    });
-    return response;
-  } finally {
-    clearTimeout(timeoutId);
+    return JSON.parse(jsonText) as T;
+  } catch {
+    return fallback;
   }
-}
+};
+
+const resolveErrorMessage = (
+  error: unknown,
+  fallback: string = "Unknown error"
+): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  return fallback;
+};
+
+const resolveGoogleTokenErrorMessage = (
+  data: Record<string, unknown>,
+  status: number
+): string => {
+  const errorCode =
+    typeof data.error === "string"
+      ? data.error
+      : typeof data.error === "object" &&
+          data.error !== null &&
+          typeof (data.error as { message?: unknown }).message === "string"
+        ? ((data.error as { message?: string }).message ?? undefined)
+        : undefined;
+
+  const errorDescription =
+    typeof data.error_description === "string"
+      ? data.error_description
+      : typeof data.errorDescription === "string"
+        ? data.errorDescription
+        : undefined;
+
+  if (errorCode && errorDescription) return `${errorCode}: ${errorDescription}`;
+  if (errorDescription) return errorDescription;
+  if (errorCode) return errorCode;
+  return `Token exchange failed: ${status}`;
+};
 
 export const apiClient = {
   async healthCheck(): Promise<HealthResponse> {
-    const response = await fetchWithTimeout(`${BACKEND_URL}/healthz`);
-    if (!response.ok) {
-      throw new Error(`Health check failed: ${response.status}`);
-    }
-    return response.json();
+    return invoke<HealthResponse>("ipc_health_check");
   },
 
   async waitForBackend(maxRetries = 30, retryDelay = 500): Promise<boolean> {
@@ -66,25 +92,50 @@ export const apiClient = {
   // Chat API methods
   chat: {
     async checkStatus(): Promise<ClaudeStatusResponse> {
-      const response = await fetchWithTimeout(`${BACKEND_URL}/chat/status`);
-      if (!response.ok) {
-        throw new Error(`Status check failed: ${response.status}`);
-      }
-      return response.json();
+      return invoke<ClaudeStatusResponse>("chat_check_status");
     },
 
     async sendMessage(request: ChatRequest): Promise<ChatResponse> {
-      const response = await fetchWithTimeout(`${BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-        timeout: 120000, // 2 minutes for non-streaming
+      const conversationId = request.conversationId ?? crypto.randomUUID();
+      let content = "";
+      let resolvedSessionId = request.sessionId;
+
+      await new Promise<void>((resolve, reject) => {
+        let finalized = false;
+
+        const finalize = (cb: () => void) => {
+          if (finalized) return;
+          finalized = true;
+          cb();
+        };
+
+        this.streamMessage(request, {
+          onStart: (sessionId) => {
+            if (sessionId) resolvedSessionId = sessionId;
+          },
+          onTextDelta: (text) => {
+            content += text;
+          },
+          onDone: (sessionId) => {
+            if (sessionId) resolvedSessionId = sessionId;
+            finalize(resolve);
+          },
+          onError: (error) => {
+            finalize(() => reject(new Error(error)));
+          },
+        });
       });
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error ?? `Chat failed: ${response.status}`);
-      }
-      return response.json();
+
+      return {
+        message: {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content,
+          timestamp: new Date().toISOString(),
+        },
+        conversationId,
+        sessionId: resolvedSessionId,
+      };
     },
 
     streamMessage(
@@ -110,8 +161,6 @@ export const apiClient = {
         >;
       }
     ): { abort: () => void } {
-      const abortController = new AbortController();
-
       const defaultHandlers: Record<
         FrontendStreamChunk["type"],
         (chunk: FrontendStreamChunk) => void
@@ -142,92 +191,78 @@ export const apiClient = {
         ...(callbacks.handlers ?? {}),
       };
 
+      const requestId = crypto.randomUUID();
+      let isClosed = false;
+      const unlistenPromise = listen<ChatStreamEventPayload>(
+        CHAT_STREAM_EVENT,
+        (event) => {
+          if (isClosed || event.payload.requestId !== requestId) return;
+
+          const chunk = event.payload.chunk;
+          callbacks.onChunk?.(chunk);
+          const handler =
+            resolvedHandlers[chunk.type as FrontendStreamChunk["type"]];
+          handler?.(chunk);
+
+          if (chunk.type === "done" || chunk.type === "error") {
+            void cleanup();
+          }
+        }
+      );
+
+      const cleanup = async () => {
+        if (isClosed) return;
+        isClosed = true;
+        const unlisten = await unlistenPromise.catch(() => null);
+        unlisten?.();
+      };
+
       (async () => {
         try {
-          const response = await fetch(`${BACKEND_URL}/chat/stream`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(request),
-            signal: abortController.signal,
+          await invoke("chat_start_stream", {
+            input: {
+              requestId,
+              message: request.message,
+              workingDirectory: request.workingDirectory,
+              sessionId: request.sessionId,
+              systemPrompt: request.systemPrompt,
+              conversationId: request.conversationId,
+            },
           });
-
-          if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            callbacks.onError?.(
-              error.error ?? `Stream failed: ${response.status}`
-            );
-            return;
-          }
-
-          const reader = response.body?.getReader();
-          if (!reader) {
-            callbacks.onError?.("No response body");
-            return;
-          }
-
-          const decoder = new TextDecoder();
-          let buffer = "";
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() ?? "";
-
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                try {
-                  const chunk = JSON.parse(
-                    line.slice(6)
-                  ) as FrontendStreamChunk;
-                  callbacks.onChunk?.(chunk);
-                  const handler =
-                    resolvedHandlers[chunk.type as FrontendStreamChunk["type"]];
-                  handler?.(chunk);
-                } catch {
-                  // Skip malformed JSON
-                }
-              }
-            }
-          }
         } catch (error) {
-          if (error instanceof Error && error.name === "AbortError") {
-            return;
-          }
-          callbacks.onError?.(
-            error instanceof Error ? error.message : "Unknown error"
-          );
+          await cleanup();
+          callbacks.onError?.(resolveErrorMessage(error));
         }
       })();
 
       return {
-        abort: () => abortController.abort(),
+        abort: () => {
+          void (async () => {
+            await invoke("chat_cancel_stream", { requestId }).catch(() => null);
+            await cleanup();
+          })();
+        },
       };
     },
 
     async cancelRequest(requestId: string): Promise<{ cancelled: boolean }> {
-      const response = await fetchWithTimeout(`${BACKEND_URL}/chat/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId }),
+      const cancelled = await invoke<boolean>("chat_cancel_stream", {
+        requestId,
       });
-      return response.json();
+      return { cancelled };
     },
   },
 
   // Google Calendar integration methods
   googleCalendar: {
+    async prepareOAuth(state: string): Promise<void> {
+      await invoke("google_prepare_oauth", { state });
+    },
+
     async pollAuthResult(state: string): Promise<GoogleCalendarAuthResult> {
-      const response = await fetchWithTimeout(
-        `${BACKEND_URL}/oauth/google/result?state=${encodeURIComponent(state)}`
-      );
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error ?? `Auth poll failed: ${response.status}`);
-      }
-      return response.json();
+      return invoke<GoogleCalendarAuthResult>("google_poll_oauth_result", {
+        state,
+      });
     },
 
     async exchangeToken(params: {
@@ -239,22 +274,17 @@ export const apiClient = {
       clientId: string;
       clientSecret?: string;
     }): Promise<GoogleCalendarTokenResponse> {
-      const response = await fetchWithTimeout(
-        `${BACKEND_URL}/integrations/google/token`,
+      const response = await invoke<HttpProxyResponse>(
+        "google_exchange_token",
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
-          timeout: 15000,
+          params,
         }
       );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(
-          data.error ?? `Token exchange failed: ${response.status}`
-        );
+      const data = parseJson<Record<string, unknown>>(response.dataJson, {});
+      if (response.status >= 400) {
+        throw new Error(resolveGoogleTokenErrorMessage(data, response.status));
       }
-      return data;
+      return data as unknown as GoogleCalendarTokenResponse;
     },
 
     async listEvents(params: {
@@ -266,16 +296,13 @@ export const apiClient = {
       pageToken?: string;
       maxResults?: number;
     }): Promise<{ status: number; data: GoogleCalendarEventsResponse }> {
-      const response = await fetchWithTimeout(
-        `${BACKEND_URL}/integrations/google/events`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
-          timeout: 15000,
-        }
+      const response = await invoke<HttpProxyResponse>("google_list_events", {
+        params,
+      });
+      const data = parseJson<GoogleCalendarEventsResponse>(
+        response.dataJson,
+        {}
       );
-      const data = await response.json().catch(() => ({}));
       return { status: response.status, data };
     },
   },
@@ -283,36 +310,21 @@ export const apiClient = {
   // Jira integration methods
   jira: {
     async testConnection(params: JiraTestRequest): Promise<JiraTestResponse> {
-      const response = await fetchWithTimeout(
-        `${BACKEND_URL}/integrations/jira/test`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
-          timeout: 15000,
-        }
-      );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error ?? `Jira test failed: ${response.status}`);
+      try {
+        return await invoke<JiraTestResponse>("jira_test_connection", {
+          params,
+        });
+      } catch (error) {
+        throw new Error(resolveErrorMessage(error, "Jira test failed"));
       }
-      return data;
     },
+
     async listIssues(params: JiraIssuesRequest): Promise<JiraIssuesResponse> {
-      const response = await fetchWithTimeout(
-        `${BACKEND_URL}/integrations/jira/issues`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(params),
-          timeout: 15000,
-        }
-      );
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error ?? `Jira issues failed: ${response.status}`);
+      try {
+        return await invoke<JiraIssuesResponse>("jira_list_issues", { params });
+      } catch (error) {
+        throw new Error(resolveErrorMessage(error, "Jira issues failed"));
       }
-      return data;
     },
   },
 };

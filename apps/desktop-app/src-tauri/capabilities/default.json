@@ -8,8 +8,6 @@
     "opener:default",
     "dialog:default",
     "store:default",
-    "stronghold:default",
-    "shell:allow-spawn",
-    "shell:allow-kill"
+    "stronghold:default"
   ]
 }

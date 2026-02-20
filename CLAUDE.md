@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-**EN:TTOKK** — 볼트 기반 마크다운 노트 편집기, AI 채팅, 회의 녹음/전사, 개발자 도구 통합(GitHub, Jira, Google Calendar)을 제공하는 한국어 데스크톱 생산성 앱입니다.
+**EN:TTOKK** — 볼트 기반 마크다운 노트 편집기, AI 채팅, 개발자 도구 통합(GitHub, Jira, Google Calendar)을 제공하는 한국어 데스크톱 생산성 앱입니다.
 
-Bun 모노레포로 구성되며, React 19 프론트엔드 + Rust 백엔드의 Tauri 2.x 데스크톱 앱과 Hono 기반 Bun 백엔드 서버를 포함합니다.
+Bun 모노레포로 구성되며, React 19 프론트엔드 + Rust 백엔드의 Tauri 2.x 데스크톱 앱을 중심으로 구성됩니다.
 
 ## 명령어
 
@@ -15,16 +15,13 @@ Bun 모노레포로 구성되며, React 19 프론트엔드 + Rust 백엔드의 T
 ```bash
 bun install                    # 의존성 설치
 
-# 개발 (백엔드 + Tauri 동시 실행, 전체 기능 사용 시 필수)
+# 개발 (Tauri 앱 실행)
 cd apps/desktop-app && bun run dev:full
 
 # 프론트엔드만 실행 (Vite 개발 서버, 포트 1420)
 cd apps/desktop-app && bun run dev
 
-# 백엔드만 실행 (포트 31337, hot reload)
-bun run backend:dev
-
-# 프로덕션 빌드 (sidecar 빌드 포함)
+# 프로덕션 빌드
 cd apps/desktop-app && bun run tauri:build
 
 # TypeScript 타입 검사
@@ -33,9 +30,6 @@ cd apps/desktop-app && bunx tsc --noEmit
 # 코드 품질 (Biome)
 bun run check                  # 린트 + 포매팅 검사
 bun run check:fix              # 자동 수정
-
-# 백엔드 테스트
-cd apps/backend && bun test
 ```
 
 ## 아키텍처
@@ -43,35 +37,26 @@ cd apps/backend && bun test
 ### 워크스페이스 구조
 
 - **`apps/desktop-app`** — Tauri 데스크톱 앱 (React 프론트엔드 + Rust 백엔드)
-- **`apps/backend`** — Hono 기반 Bun HTTP 서버 (Claude 채팅, Google Calendar, Jira 프록시)
 - **`packages/shared`** — KST 시간/날짜 유틸리티
-- **`packages/api-types`** — 프론트엔드-백엔드 공유 TypeScript 타입
+- **`packages/api-types`** — 프론트엔드-IPC 통신 공유 TypeScript 타입
 
 ### 프론트엔드 (apps/desktop-app/src/)
 
 **피처 기반 아키텍처** — 각 기능은 `features/{name}/` 아래 components, store, hooks, types로 구성됩니다.
 
-주요 피처: `vault` (파일 탐색/관리), `editor` (TipTap 마크다운 편집기), `chat` (Claude AI), `daily-notes` (캘린더 일일 노트), `meeting-notes` (Whisper 전사), `google-calendar`, `jira`, `github`, `claude-activity`, `settings`, `shortcuts`
+주요 피처: `vault` (파일 탐색/관리), `editor` (TipTap 마크다운 편집기), `chat` (Claude AI), `daily-notes` (캘린더 일일 노트), `google-calendar`, `jira`, `github`, `claude-activity`, `settings`, `shortcuts`
 
 **상태 관리:** Zustand 스토어 (피처당 1개). 설정/볼트 경로는 Tauri plugin-store, 자격 증명은 plugin-stronghold에 저장.
 
 **UI:** Radix UI + Tailwind CSS 4 (shadcn/ui 패턴). 컴포넌트는 `src/components/ui/`.
 
-**레이아웃:** 단일 페이지 앱 (라우터 없음). 좌측 사이드바(파일 탐색기), 중앙(편집기), 우측 사이드바(탭: 캘린더, 채팅, Google Calendar, Jira, GitHub, Claude Activity, Meeting Notes).
+**레이아웃:** 단일 페이지 앱 (라우터 없음). 좌측 사이드바(파일 탐색기), 중앙(편집기), 우측 사이드바(탭: 캘린더, 채팅, Google Calendar, Jira, GitHub, Claude Activity).
 
 ### Rust 백엔드 (apps/desktop-app/src-tauri/)
 
-Tauri 커맨드는 `src/commands/` 아래 모듈별로 분리: `vault.rs`, `file.rs`, `github.rs`, `secure.rs` (keyring), `claude.rs`, `whisper.rs`.
+Tauri 커맨드는 `src/commands/` 아래 모듈별로 분리: `vault.rs`, `file.rs`, `github.rs`, `secure.rs` (keyring), `claude.rs`, `chat_ipc.rs`, `google_calendar.rs`, `jira.rs`.
 
 **tauri-specta로 TypeScript 바인딩 자동 생성** — Rust 커맨드에 `#[specta::specta]` 데코레이터 추가 시 `src/bindings.ts`가 자동 업데이트됩니다. 프론트엔드에서는 이 바인딩을 통해 타입 안전하게 호출합니다.
-
-### Bun 백엔드 (apps/backend/)
-
-Hono 프레임워크, 포트 31337. 프로덕션에서는 Tauri sidecar로 자동 실행. 개발 시 `dev:full`로 동시 실행하거나 `backend:dev`로 별도 실행.
-
-- `/chat/*` — Claude AI SSE 스트리밍
-- `/integrations/google-calendar/*` — OAuth 2.0 + Calendar API
-- `/integrations/jira/*` — Jira REST API 프록시
 
 ### Tauri IPC 패턴
 
@@ -93,7 +78,7 @@ fn read_file(path: String) -> Result<String, String> { ... }
 ## 개발 참고사항
 
 - Vite 개발 서버: `localhost:1420`, HMR: 포트 1421
-- 백엔드 서버: `localhost:31337` (CORS: localhost:1420 + tauri://localhost)
+- 네트워크 통합(chat/google/jira)은 기본적으로 Tauri IPC 경로를 사용
 - Rust 변경 시 Tauri가 자동 재빌드, `src-tauri/`는 Vite 감시 제외
 - 한국어 로케일/KST 타임존 기본 사용 (date-fns `ko` 로케일)
 - 마크다운 ↔ HTML 변환: 디스크에 마크다운 저장, TipTap 편집기에서 HTML로 변환

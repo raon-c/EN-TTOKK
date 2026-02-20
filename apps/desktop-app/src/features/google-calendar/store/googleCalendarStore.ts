@@ -178,6 +178,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
         const codeChallenge = await generateCodeChallenge(codeVerifier);
         const authUrl = await buildAuthUrl(state, codeChallenge);
 
+        await apiClient.googleCalendar.prepareOAuth(state);
         await openUrl(authUrl);
         const code = await pollForAuthCode(state);
 

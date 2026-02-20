@@ -29,6 +29,14 @@ async validateVaultPath(path: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async ipcHealthCheck() : Promise<Result<IpcHealthResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("ipc_health_check") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_directory", { path }) };
@@ -125,6 +133,46 @@ async removeJiraToken() : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async jiraTestConnection(params: JiraRequestInput) : Promise<Result<JiraTestConnectionResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("jira_test_connection", { params }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async jiraListIssues(params: JiraRequestInput) : Promise<Result<JiraIssuesListResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("jira_list_issues", { params }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async chatCheckStatus() : Promise<Result<ChatStatusResponse, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("chat_check_status") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async chatStartStream(input: ChatStreamStartInput) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("chat_start_stream", { input }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async chatCancelStream(requestId: string) : Promise<Result<boolean, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("chat_cancel_stream", { requestId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async listClaudeProjects() : Promise<Result<string[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("list_claude_projects") };
@@ -149,102 +197,37 @@ async getClaudeActivityDates(subscribedFolders: string[], year: number, month: n
     else return { status: "error", error: e  as any };
 }
 },
-async checkWhisperModel() : Promise<Result<ModelStatus, string>> {
+async googlePrepareOauth(state: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("check_whisper_model") };
+    return { status: "ok", data: await TAURI_INVOKE("google_prepare_oauth", { state }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async downloadWhisperModel() : Promise<Result<null, string>> {
+async googlePollOauthResult(state: string) : Promise<Result<GoogleAuthResult, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("download_whisper_model") };
+    return { status: "ok", data: await TAURI_INVOKE("google_poll_oauth_result", { state }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async cancelWhisperDownload() : Promise<void> {
-    await TAURI_INVOKE("cancel_whisper_download");
-},
-async cleanupPartialDownload() : Promise<Result<null, string>> {
+async googleExchangeToken(params: GoogleTokenExchangeInput) : Promise<Result<HttpProxyResponse, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("cleanup_partial_download") };
+    return { status: "ok", data: await TAURI_INVOKE("google_exchange_token", { params }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async validateAudioFile(filePath: string) : Promise<Result<boolean, string>> {
+async googleListEvents(params: GoogleEventsInput) : Promise<Result<HttpProxyResponse, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("validate_audio_file", { filePath }) };
+    return { status: "ok", data: await TAURI_INVOKE("google_list_events", { params }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
-},
-async transcribeAudio(filePath: string) : Promise<Result<TranscriptionResult, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("transcribe_audio", { filePath }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async cancelTranscription() : Promise<void> {
-    await TAURI_INVOKE("cancel_transcription");
-},
-async saveRecordedAudio(audioData: number[]) : Promise<Result<SavedRecordingInfo, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("save_recorded_audio", { audioData }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async cleanupRecording(filePath: string) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("cleanup_recording", { filePath }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async listRecordings() : Promise<Result<RecordingFile[], string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("list_recordings") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async startRealtimeTranscription(config: RealtimeTranscriptionConfig | null) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("start_realtime_transcription", { config }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async pushAudioChunk(samples: number[]) : Promise<Result<RealtimePartialResult | null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("push_audio_chunk", { samples }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async stopRealtimeTranscription() : Promise<Result<string, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("stop_realtime_transcription") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async isRealtimeTranscriptionActive() : Promise<boolean> {
-    return await TAURI_INVOKE("is_realtime_transcription_active");
 }
 }
 
@@ -258,6 +241,8 @@ async isRealtimeTranscriptionActive() : Promise<boolean> {
 
 /** user-defined types **/
 
+export type ChatStatusResponse = { status: string; version: string | null; error: string | null }
+export type ChatStreamStartInput = { requestId: string; message: string; workingDirectory: string | null; sessionId: string | null; systemPrompt: string | null; conversationId: string | null }
 export type ClaudeActivityItem = { kind: ClaudeActivityKind; content: string; timestamp: string; project_path: string; session_id: string }
 export type ClaudeActivityKind = "user" | "assistant"
 export type ClaudeActivityResponse = { date: string; items: ClaudeActivityItem[] }
@@ -265,12 +250,16 @@ export type FileEntry = { name: string; path: string; is_dir: boolean; children:
 export type GitHubActivityItem = { kind: GitHubActivityKind; title: string; url: string; repo: string; timestamp: string; number: number | null; summary: string | null }
 export type GitHubActivityKind = "commit" | "pull_request" | "review" | "comment"
 export type GitHubActivityResponse = { login: string; date: string; items: GitHubActivityItem[] }
-export type ModelStatus = { is_installed: boolean; model_path: string | null; model_size: number | null }
-export type RealtimePartialResult = { text: string; is_final: boolean; segment_index: number }
-export type RealtimeTranscriptionConfig = { language: string | null }
-export type RecordingFile = { file_path: string; file_name: string; file_size: number; created_at: number }
-export type SavedRecordingInfo = { file_path: string; file_size: number }
-export type TranscriptionResult = { text: string; duration_ms: number }
+export type GoogleAuthResult = { status: string; code: string | null; error: string | null }
+export type GoogleEventsInput = { accessToken: string; calendarId: string | null; timeMin: string | null; timeMax: string | null; syncToken: string | null; pageToken: string | null; maxResults: number | null }
+export type GoogleTokenExchangeInput = { grantType: string; code: string | null; codeVerifier: string | null; refreshToken: string | null; redirectUri: string; clientId: string; clientSecret: string | null }
+export type HttpProxyResponse = { status: number; dataJson: string }
+export type IpcHealthResponse = { status: string; timestamp: string }
+export type JiraIssue = { key: string; summary: string; status: string; updated: string | null; assignee: string | null }
+export type JiraIssuesListResponse = { issues: JiraIssue[] }
+export type JiraRequestInput = { baseUrl: string; email: string; apiToken: string }
+export type JiraTestConnectionResponse = { profile: JiraUserProfile }
+export type JiraUserProfile = { displayName: string; emailAddress: string | null; accountId: string | null; avatarUrls: Partial<{ [key in string]: string }> | null }
 export type VaultConfig = { path: string; name: string }
 
 /** tauri-specta globals **/

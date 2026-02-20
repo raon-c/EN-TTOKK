@@ -138,13 +138,13 @@ function AppContent() {
   ]);
 
   if (backendStatus === "connecting") {
-    return <LoadingScreen message="Connecting to backend..." />;
+    return <LoadingScreen message="Connecting to app service..." />;
   }
 
   if (backendStatus === "error") {
     return (
       <BackendErrorScreen
-        error={backendError ?? "Failed to connect to backend"}
+        error={backendError ?? "Failed to connect to app service"}
         onRetry={retryBackend}
       />
     );

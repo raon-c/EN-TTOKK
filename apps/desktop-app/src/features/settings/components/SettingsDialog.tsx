@@ -161,7 +161,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
             <Separator />
 
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Backend Connection</Label>
+              <Label className="text-sm font-medium">Service Connection</Label>
               <div className="rounded-lg border p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -214,7 +214,7 @@ export function SettingsDialog({ open, onOpenChange }: SettingsDialogProps) {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Backend server: http://localhost:31337
+                  Built-in IPC service
                 </p>
               </div>
             </div>

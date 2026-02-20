@@ -1,13 +1,19 @@
 pub mod claude;
+pub mod chat_ipc;
 pub mod file;
+pub mod google_calendar;
 pub mod github;
+pub mod health;
+pub mod jira;
 pub mod secure;
 pub mod vault;
-pub mod whisper;
 
 pub use claude::*;
+pub use chat_ipc::*;
 pub use file::*;
+pub use google_calendar::*;
 pub use github::*;
+pub use health::*;
+pub use jira::*;
 pub use secure::*;
 pub use vault::*;
-pub use whisper::*;

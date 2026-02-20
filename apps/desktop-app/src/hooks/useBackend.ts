@@ -24,7 +24,7 @@ export function useBackend(): UseBackendResult {
       setLastChecked(new Date());
     } catch {
       setStatus("error");
-      setError("Failed to connect to backend server");
+      setError("Failed to connect to app service");
       setLastChecked(new Date());
     }
   }, []);
@@ -40,7 +40,7 @@ export function useBackend(): UseBackendResult {
       setLastChecked(new Date());
     } else {
       setStatus("error");
-      setError("Failed to connect to backend server");
+      setError("Failed to connect to app service");
       setLastChecked(new Date());
     }
   }, []);

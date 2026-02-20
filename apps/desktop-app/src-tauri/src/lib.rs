@@ -1,18 +1,12 @@
 mod commands;
-mod sidecar;
 
 use commands::{
-    create_file, create_folder, create_vault, delete_file, get_all_notes,
-    get_claude_activities, get_claude_activity_dates, get_github_activity, get_jira_token,
-    list_claude_projects, open_vault, read_directory, read_file, remove_jira_token, rename_file,
-    set_jira_token, validate_vault_path, write_file,
-    // Whisper commands
-    cancel_transcription, cancel_whisper_download, check_whisper_model, cleanup_partial_download,
-    cleanup_recording, download_whisper_model, list_recordings, save_recorded_audio,
-    transcribe_audio, validate_audio_file,
-    // Realtime transcription commands
-    is_realtime_transcription_active, push_audio_chunk, start_realtime_transcription,
-    stop_realtime_transcription,
+    chat_cancel_stream, chat_check_status, chat_start_stream, create_file, create_folder,
+    create_vault, delete_file, get_all_notes, get_claude_activities, get_claude_activity_dates,
+    get_github_activity, get_jira_token, google_exchange_token, google_list_events,
+    google_poll_oauth_result, google_prepare_oauth, ipc_health_check, jira_list_issues,
+    jira_test_connection, list_claude_projects, open_vault, read_directory, read_file,
+    remove_jira_token, rename_file, set_jira_token, validate_vault_path, write_file,
 };
 #[cfg(any(debug_assertions, test))]
 use specta_typescript::{BigIntExportBehavior, Typescript};
@@ -28,6 +22,8 @@ fn create_specta_builder() -> Builder {
         open_vault,
         create_vault,
         validate_vault_path,
+        // Health
+        ipc_health_check,
         // File commands
         read_directory,
         read_file,
@@ -43,26 +39,20 @@ fn create_specta_builder() -> Builder {
         get_jira_token,
         set_jira_token,
         remove_jira_token,
+        jira_test_connection,
+        jira_list_issues,
         // Claude commands
+        chat_check_status,
+        chat_start_stream,
+        chat_cancel_stream,
         list_claude_projects,
         get_claude_activities,
         get_claude_activity_dates,
-        // Whisper commands
-        check_whisper_model,
-        download_whisper_model,
-        cancel_whisper_download,
-        cleanup_partial_download,
-        validate_audio_file,
-        transcribe_audio,
-        cancel_transcription,
-        save_recorded_audio,
-        cleanup_recording,
-        list_recordings,
-        // Realtime transcription commands
-        start_realtime_transcription,
-        push_audio_chunk,
-        stop_realtime_transcription,
-        is_realtime_transcription_active,
+        // Google Calendar commands
+        google_prepare_oauth,
+        google_poll_oauth_result,
+        google_exchange_token,
+        google_list_events,
     ])
 }
 
@@ -84,8 +74,6 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_store::Builder::new().build())
-        .plugin(tauri_plugin_shell::init())
-        .manage(sidecar::SidecarState::default())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             let salt_path = app
@@ -96,12 +84,6 @@ pub fn run() {
                 tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build(),
             )?;
 
-            // Spawn backend sidecar only in release mode
-            // In dev mode, backend is started separately via `bun run dev:full`
-            #[cfg(not(debug_assertions))]
-            if let Err(e) = sidecar::spawn_backend(app) {
-                eprintln!("Failed to spawn backend sidecar: {}", e);
-            }
             builder.mount_events(app);
 
             // Create app menu with Settings item
@@ -149,13 +131,6 @@ pub fn run() {
             });
 
             Ok(())
-        })
-        .on_window_event(|_window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
-                // Kill backend when main window is destroyed (release mode only)
-                #[cfg(not(debug_assertions))]
-                sidecar::kill_backend(_window.app_handle());
-            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
