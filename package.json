@@ -10,7 +10,6 @@
     "check": "biome check .",
     "check:fix": "biome check --write .",
     "dev": "vite",
-    "dev:full": "tauri dev",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
