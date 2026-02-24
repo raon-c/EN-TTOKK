@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { getGitHubActivity } from "@/lib/github";
+import { normalizeAppError } from "@/lib/platform";
 import { getKstDateKey } from "@/lib/shared";
 
 import type {
@@ -37,19 +38,6 @@ const resolveStatus = (message: string): GitHubStatus => {
   return "error";
 };
 
-const resolveErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return fallback;
-  }
-};
-
 const fetchActivity = async (
   date: Date,
   set: (partial: Partial<GitHubStoreState>) => void,
@@ -74,16 +62,13 @@ const fetchActivity = async (
       error: null,
     });
   } catch (error) {
-    const message = resolveErrorMessage(
-      error,
-      "Failed to load GitHub activity"
-    );
+    const appError = normalizeAppError(error, "Failed to load GitHub activity");
     if (get().activeRequestId !== requestId) return;
     set({
-      status: resolveStatus(message),
+      status: resolveStatus(appError.message),
       login: null,
       activities: [],
-      error: message,
+      error: `${appError.message} (trace: ${appError.traceId})`,
     });
   } finally {
     if (get().activeRequestId === requestId) {

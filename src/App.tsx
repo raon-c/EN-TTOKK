@@ -1,16 +1,12 @@
-import { listen } from "@tauri-apps/api/event";
 import { useTheme } from "next-themes";
-import { useEffect, useRef, useState } from "react";
-
-import { commands } from "@/bindings";
+import { useEffect } from "react";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "@/components/ui/sonner";
-import { useDailyNotesStore } from "@/features/daily-notes/store/dailyNotesStore";
+import { useAppOrchestration } from "@/features/app/hooks/useAppOrchestration";
 import { GoogleCalendarSync } from "@/features/google-calendar/components/GoogleCalendarSync";
 import { SettingsDialog } from "@/features/settings/components/SettingsDialog";
 import { useSettingsStore } from "@/features/settings/store/settingsStore";
 import { VaultPicker } from "@/features/vault/components/VaultPicker";
-import { useVaultStore } from "@/features/vault/store/vaultStore";
 import { useBackend } from "@/hooks/useBackend";
 import { EditorLayout } from "@/layouts/EditorLayout";
 
@@ -55,87 +51,20 @@ function ThemeSynchronizer() {
 }
 
 function AppContent() {
-  const { path, _hasHydrated, openVault, closeVault, loadVault } =
-    useVaultStore();
-  const {
-    loadSettings,
-    _hasHydrated: settingsHydrated,
-    settings,
-  } = useSettingsStore();
-  const { openOrCreateDailyNote } = useDailyNotesStore();
   const {
     status: backendStatus,
     error: backendError,
     retry: retryBackend,
   } = useBackend();
-  const [isValidating, setIsValidating] = useState(true);
-  const [validationError, setValidationError] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const hasAttemptedAutoOpen = useRef(false);
-
-  // Load settings and vault on mount
-  useEffect(() => {
-    loadSettings();
-    loadVault();
-  }, [loadSettings, loadVault]);
-
-  // Listen for menu events
-  useEffect(() => {
-    const unlisten = listen("open-settings", () => {
-      setSettingsOpen(true);
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, []);
-
-  // Keyboard shortcut: Command + , to open settings
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey && event.key === ",") {
-        event.preventDefault();
-        setSettingsOpen(true);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  useEffect(() => {
-    if (!_hasHydrated || hasAttemptedAutoOpen.current) return;
-    hasAttemptedAutoOpen.current = true;
-
-    if (!path) {
-      setIsValidating(false);
-      return;
-    }
-
-    commands
-      .validateVaultPath(path)
-      .then(() => openVault(path))
-      .then(() => {
-        const currentActiveNote = useVaultStore.getState().activeNote;
-        if (currentActiveNote === null) {
-          openOrCreateDailyNote(new Date(), settings.dailyNotes).catch(
-            () => {}
-          );
-        }
-      })
-      .catch(() => {
-        setValidationError("이전 vault를 찾을 수 없습니다");
-        closeVault();
-      })
-      .finally(() => setIsValidating(false));
-  }, [
-    _hasHydrated,
+  const {
     path,
-    openVault,
-    closeVault,
-    openOrCreateDailyNote,
-    settings.dailyNotes,
-  ]);
+    vaultHydrated,
+    settingsHydrated,
+    isValidating,
+    validationError,
+    settingsOpen,
+    setSettingsOpen,
+  } = useAppOrchestration();
 
   if (backendStatus === "connecting") {
     return <LoadingScreen message="Connecting to app service..." />;
@@ -150,7 +79,7 @@ function AppContent() {
     );
   }
 
-  if (!_hasHydrated || !settingsHydrated || isValidating) {
+  if (!vaultHydrated || !settingsHydrated || isValidating) {
     return <LoadingScreen />;
   }
 

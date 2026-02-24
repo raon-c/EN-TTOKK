@@ -57,9 +57,12 @@
 ## 4) 코드 구조
 
 - `src/features/*`: 기능 단위 모듈(컴포넌트/스토어/타입)
+- `src/features/app/hooks/*`: 앱 초기화/설정/자동복원 orchestration 훅
 - `src/lib/*`: 공통 유틸, API 클라이언트, 스토리지 헬퍼
 - `src/components/*`: UI/공통 컴포넌트
+- `src/layouts/hooks/*`: 레이아웃 상태 전이/단축키 orchestration 훅
 - `src-tauri/src/commands/*`: Tauri command 구현
+- `src-tauri/src/application/*`: 도메인 실행 로직(transport와 분리)
 - `src-tauri/src/lib.rs`: command 등록, 플러그인, 메뉴 설정
 
 새 기능 추가 원칙:
@@ -68,6 +71,30 @@
 2. 외부 연동은 프런트 API 레이어(`src/lib/api-client.ts`) + Tauri command를 쌍으로 추가
 3. 공통 타입은 기존 `src/types`/`src/features/*/types.ts` 패턴 재사용
 
+### 아키텍처 경계 (2026-02-20 기준)
+
+- End-to-End 슬라이스:
+  - `vault-workspace`: `src/features/vault`, `src/features/editor`, `src/features/daily-notes`
+  - `ai-conversation`: `src/features/chat`, `src/features/daily-summary`
+  - `activity-observatory`: `src/features/github`, `src/features/claude-activity`
+  - `planning-calendar`: `src/features/google-calendar`
+  - `issue-tracking`: `src/features/jira`
+- Cross-Cutting 모듈:
+  - 프런트: `src/lib/platform/*` (`errors`, `trace`, `reliability`, `invoke`)
+  - 백엔드: `src-tauri/src/platform/*` (`error`, `trace`)
+- Application 모듈:
+  - `src-tauri/src/application/chat_stream.rs`
+  - `src-tauri/src/application/secure.rs`
+  - `src-tauri/src/application/claude_activity.rs`
+  - `src-tauri/src/application/github_activity.rs`
+  - `src-tauri/src/application/jira.rs`
+  - `src-tauri/src/application/google_calendar.rs`
+- 규칙:
+  - 프런트의 Tauri 호출은 `src/lib/api-client.ts` 경유
+  - command 오류는 `code/message/retryable/traceId/source` 형태를 우선 사용
+  - 신규 command는 traceId 전달/생성을 기본값으로 적용
+  - command는 transport 경계 위주로 유지하고 도메인 실행은 `application`으로 위임
+
 ## 5) 구현 가드레일
 
 ### 스타일/포맷
@@ -75,6 +102,7 @@
 - TypeScript `strict` 모드 기준을 지킵니다.
 - 포맷/정렬은 Biome 기준(`double quote`, `semicolon`)을 따릅니다.
 - 코드 변경 후 `bun run check`를 기본 실행합니다.
+- 프런트/백엔드 공통 오류 형식은 `code/message/retryable/traceId/source`를 사용합니다.
 
 ### 생성 파일
 

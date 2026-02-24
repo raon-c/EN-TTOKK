@@ -29,9 +29,9 @@ async validateVaultPath(path: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async ipcHealthCheck() : Promise<Result<IpcHealthResponse, string>> {
+async ipcHealthCheck(traceId: string | null) : Promise<Result<IpcHealthResponse, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("ipc_health_check") };
+    return { status: "ok", data: await TAURI_INVOKE("ipc_health_check", { traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -101,49 +101,49 @@ async getAllNotes(vaultPath: string) : Promise<Result<string[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async getGithubActivity(date: string) : Promise<Result<GitHubActivityResponse, string>> {
+async getGithubActivity(date: string, traceId: string | null) : Promise<Result<GitHubActivityResponse, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_github_activity", { date }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_github_activity", { date, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async getJiraToken() : Promise<Result<string | null, string>> {
+async getJiraToken(traceId: string | null) : Promise<Result<string | null, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_jira_token") };
+    return { status: "ok", data: await TAURI_INVOKE("get_jira_token", { traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async setJiraToken(token: string) : Promise<Result<null, string>> {
+async setJiraToken(token: string, traceId: string | null) : Promise<Result<null, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("set_jira_token", { token }) };
+    return { status: "ok", data: await TAURI_INVOKE("set_jira_token", { token, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async removeJiraToken() : Promise<Result<null, string>> {
+async removeJiraToken(traceId: string | null) : Promise<Result<null, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("remove_jira_token") };
+    return { status: "ok", data: await TAURI_INVOKE("remove_jira_token", { traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async jiraTestConnection(params: JiraRequestInput) : Promise<Result<JiraTestConnectionResponse, string>> {
+async jiraTestConnection(params: JiraRequestInput, traceId: string | null) : Promise<Result<JiraTestConnectionResponse, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("jira_test_connection", { params }) };
+    return { status: "ok", data: await TAURI_INVOKE("jira_test_connection", { params, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async jiraListIssues(params: JiraRequestInput) : Promise<Result<JiraIssuesListResponse, string>> {
+async jiraListIssues(params: JiraRequestInput, traceId: string | null) : Promise<Result<JiraIssuesListResponse, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("jira_list_issues", { params }) };
+    return { status: "ok", data: await TAURI_INVOKE("jira_list_issues", { params, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -157,73 +157,73 @@ async chatCheckStatus() : Promise<Result<ChatStatusResponse, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-async chatStartStream(input: ChatStreamStartInput) : Promise<Result<null, string>> {
+async chatStartStream(input: ChatStreamStartInput, traceId: string | null) : Promise<Result<null, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("chat_start_stream", { input }) };
+    return { status: "ok", data: await TAURI_INVOKE("chat_start_stream", { input, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async chatCancelStream(requestId: string) : Promise<Result<boolean, string>> {
+async chatCancelStream(requestId: string, traceId: string | null) : Promise<Result<boolean, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("chat_cancel_stream", { requestId }) };
+    return { status: "ok", data: await TAURI_INVOKE("chat_cancel_stream", { requestId, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async listClaudeProjects() : Promise<Result<string[], string>> {
+async listClaudeProjects(traceId: string | null) : Promise<Result<string[], AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("list_claude_projects") };
+    return { status: "ok", data: await TAURI_INVOKE("list_claude_projects", { traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async getClaudeActivities(date: string, subscribedFolders: string[]) : Promise<Result<ClaudeActivityResponse, string>> {
+async getClaudeActivities(date: string, subscribedFolders: string[], traceId: string | null) : Promise<Result<ClaudeActivityResponse, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_claude_activities", { date, subscribedFolders }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_claude_activities", { date, subscribedFolders, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async getClaudeActivityDates(subscribedFolders: string[], year: number, month: number) : Promise<Result<number[], string>> {
+async getClaudeActivityDates(subscribedFolders: string[], year: number, month: number, traceId: string | null) : Promise<Result<number[], AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("get_claude_activity_dates", { subscribedFolders, year, month }) };
+    return { status: "ok", data: await TAURI_INVOKE("get_claude_activity_dates", { subscribedFolders, year, month, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async googlePrepareOauth(state: string) : Promise<Result<null, string>> {
+async googlePrepareOauth(state: string, traceId: string | null) : Promise<Result<null, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("google_prepare_oauth", { state }) };
+    return { status: "ok", data: await TAURI_INVOKE("google_prepare_oauth", { state, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async googlePollOauthResult(state: string) : Promise<Result<GoogleAuthResult, string>> {
+async googlePollOauthResult(state: string, traceId: string | null) : Promise<Result<GoogleAuthResult, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("google_poll_oauth_result", { state }) };
+    return { status: "ok", data: await TAURI_INVOKE("google_poll_oauth_result", { state, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async googleExchangeToken(params: GoogleTokenExchangeInput) : Promise<Result<HttpProxyResponse, string>> {
+async googleExchangeToken(params: GoogleTokenExchangeInput, traceId: string | null) : Promise<Result<HttpProxyResponse, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("google_exchange_token", { params }) };
+    return { status: "ok", data: await TAURI_INVOKE("google_exchange_token", { params, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
 },
-async googleListEvents(params: GoogleEventsInput) : Promise<Result<HttpProxyResponse, string>> {
+async googleListEvents(params: GoogleEventsInput, traceId: string | null) : Promise<Result<HttpProxyResponse, AppError>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("google_list_events", { params }) };
+    return { status: "ok", data: await TAURI_INVOKE("google_list_events", { params, traceId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -241,6 +241,7 @@ async googleListEvents(params: GoogleEventsInput) : Promise<Result<HttpProxyResp
 
 /** user-defined types **/
 
+export type AppError = { code: string; message: string; retryable: boolean; traceId: string; source: string }
 export type ChatStatusResponse = { status: string; version: string | null; error: string | null }
 export type ChatStreamStartInput = { requestId: string; message: string; workingDirectory: string | null; sessionId: string | null; systemPrompt: string | null; conversationId: string | null }
 export type ClaudeActivityItem = { kind: ClaudeActivityKind; content: string; timestamp: string; project_path: string; session_id: string }
@@ -254,7 +255,7 @@ export type GoogleAuthResult = { status: string; code: string | null; error: str
 export type GoogleEventsInput = { accessToken: string; calendarId: string | null; timeMin: string | null; timeMax: string | null; syncToken: string | null; pageToken: string | null; maxResults: number | null }
 export type GoogleTokenExchangeInput = { grantType: string; code: string | null; codeVerifier: string | null; refreshToken: string | null; redirectUri: string; clientId: string; clientSecret: string | null }
 export type HttpProxyResponse = { status: number; dataJson: string }
-export type IpcHealthResponse = { status: string; timestamp: string }
+export type IpcHealthResponse = { status: string; timestamp: string; traceId: string }
 export type JiraIssue = { key: string; summary: string; status: string; updated: string | null; assignee: string | null }
 export type JiraIssuesListResponse = { issues: JiraIssue[] }
 export type JiraRequestInput = { baseUrl: string; email: string; apiToken: string }

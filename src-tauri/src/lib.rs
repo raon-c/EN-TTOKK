@@ -1,4 +1,6 @@
+mod application;
 mod commands;
+mod platform;
 
 use commands::{
     chat_cancel_stream, chat_check_status, chat_start_stream, create_file, create_folder,
@@ -76,19 +78,19 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
-            let salt_path = app
-                .path()
-                .app_local_data_dir()?
-                .join("stronghold_salt.txt");
-            app.handle().plugin(
-                tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build(),
-            )?;
+            let salt_path = app.path().app_local_data_dir()?.join("stronghold_salt.txt");
+            app.handle()
+                .plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;
 
             builder.mount_events(app);
 
             // Create app menu with Settings item
             let app_menu = SubmenuBuilder::new(app, "en-ttokk")
-                .item(&PredefinedMenuItem::about(app, Some("About EN:TTOKK"), None)?)
+                .item(&PredefinedMenuItem::about(
+                    app,
+                    Some("About EN:TTOKK"),
+                    None,
+                )?)
                 .separator()
                 .text("settings", "Settings...")
                 .separator()

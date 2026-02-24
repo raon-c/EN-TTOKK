@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { apiClient } from "@/lib/api-client";
+import { normalizeAppError } from "@/lib/platform";
 import {
   getJiraToken,
   removeJiraToken,
@@ -77,6 +78,11 @@ const resolveToken = async (state: JiraStoreState) => {
   }
 };
 
+const toUserError = (error: unknown, fallback: string) => {
+  const appError = normalizeAppError(error, fallback);
+  return `${appError.message} (trace: ${appError.traceId})`;
+};
+
 export const useJiraStore = create<JiraStoreState>((set, get) => ({
   status: "disconnected",
   error: null,
@@ -101,10 +107,7 @@ export const useJiraStore = create<JiraStoreState>((set, get) => ({
       token = await getJiraToken();
     } catch (error) {
       set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to access secure storage",
+        error: toUserError(error, "Unable to access secure storage"),
       });
     }
     const normalized = normalizeTimestamps(stored);
@@ -133,10 +136,7 @@ export const useJiraStore = create<JiraStoreState>((set, get) => ({
       }
     } catch (error) {
       set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to update secure storage",
+        error: toUserError(error, "Unable to update secure storage"),
       });
     }
   },
@@ -172,7 +172,7 @@ export const useJiraStore = create<JiraStoreState>((set, get) => ({
     } catch (error) {
       set({
         status: "error",
-        error: error instanceof Error ? error.message : "Jira test failed",
+        error: toUserError(error, "Jira test failed"),
         profile: null,
         lastCheckedAt: null,
         issues: [],
@@ -209,7 +209,7 @@ export const useJiraStore = create<JiraStoreState>((set, get) => ({
     } catch (error) {
       set({
         issues: [],
-        error: error instanceof Error ? error.message : "Jira issues failed",
+        error: toUserError(error, "Jira issues failed"),
       });
     } finally {
       set({ isLoadingIssues: false });
@@ -234,10 +234,7 @@ export const useJiraStore = create<JiraStoreState>((set, get) => ({
       await removeJiraToken();
     } catch (error) {
       set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to clear secure storage",
+        error: toUserError(error, "Unable to clear secure storage"),
       });
     }
   },

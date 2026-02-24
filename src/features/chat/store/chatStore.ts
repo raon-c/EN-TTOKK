@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { buildDailySummaryPrompt } from "@/features/daily-summary/buildDailySummaryPrompt";
 import { apiClient } from "@/lib/api-client";
+import { normalizeAppError } from "@/lib/platform";
 import type { ChatMessage, ClaudeCliStatus } from "@/types/api";
 
 interface ActiveTool {
@@ -51,6 +52,11 @@ const initialStreamingState: StreamingState = {
   currentText: "",
   currentThinking: null,
   activeTool: null,
+};
+
+const toUserError = (error: unknown, fallback: string) => {
+  const appError = normalizeAppError(error, fallback);
+  return `${appError.message} (trace: ${appError.traceId})`;
 };
 
 export const useChatStore = create<ChatStore>()((set, get) => ({
@@ -115,10 +121,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
     } catch (err) {
       set({
         claudeStatus: "unavailable",
-        error:
-          err instanceof Error
-            ? err.message
-            : "Failed to check Claude CLI status",
+        error: toUserError(err, "Failed to check Claude CLI status"),
       });
     } finally {
       set({ isCheckingStatus: false });
@@ -150,10 +153,7 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
       });
     } catch (error) {
       set({
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to build daily summary",
+        error: toUserError(error, "Failed to build daily summary"),
       });
     }
   },

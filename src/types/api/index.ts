@@ -1,7 +1,16 @@
+export interface AppError {
+  code: string;
+  message: string;
+  retryable: boolean;
+  traceId: string;
+  source: string;
+}
+
 // Health check response type
 export interface HealthResponse {
   status: "ok" | "error";
   timestamp: string;
+  traceId: string;
 }
 
 // Chat types

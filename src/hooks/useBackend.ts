@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { normalizeAppError } from "@/lib/platform";
 import { apiClient } from "../lib/api-client";
 
 export type BackendStatus = "connecting" | "connected" | "error";
@@ -22,9 +23,13 @@ export function useBackend(): UseBackendResult {
       setStatus("connected");
       setError(null);
       setLastChecked(new Date());
-    } catch {
+    } catch (error) {
+      const appError = normalizeAppError(
+        error,
+        "Failed to connect to app service"
+      );
       setStatus("error");
-      setError("Failed to connect to app service");
+      setError(`${appError.message} (trace: ${appError.traceId})`);
       setLastChecked(new Date());
     }
   }, []);

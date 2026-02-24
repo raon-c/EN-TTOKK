@@ -6,7 +6,7 @@ import {
   MessageSquare,
   Terminal,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 import { JiraIcon } from "@/components/icons/JiraIcon";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,28 +24,14 @@ import { GoogleCalendarPanel } from "@/features/google-calendar/components/Googl
 import { JiraPanel } from "@/features/jira/components/JiraPanel";
 import { FileExplorer } from "@/features/vault/components/FileExplorer";
 import { useVaultStore } from "@/features/vault/store/vaultStore";
+import {
+  type RightSidebarTab,
+  useChatSidebarExpansion,
+  useEditorDirtyState,
+  useOpenChatShortcut,
+  useRightSidebarTabState,
+} from "@/layouts/hooks/useEditorLayoutOrchestration";
 import { cn } from "@/lib/utils";
-
-type RightSidebarTab =
-  | "calendar"
-  | "google-calendar"
-  | "chat"
-  | "jira"
-  | "github"
-  | "claude-activity";
-
-const isEditableTarget = (target: EventTarget | null) => {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-
-  return (
-    target.isContentEditable ||
-    target.tagName === "INPUT" ||
-    target.tagName === "TEXTAREA" ||
-    target.tagName === "SELECT"
-  );
-};
 
 export function EditorLayout() {
   const {
@@ -54,27 +40,19 @@ export function EditorLayout() {
     saveNote,
     openNoteByName,
   } = useVaultStore();
-  const [isDirty, setIsDirty] = useState(false);
-  const [rightSidebarTab, setRightSidebarTab] =
-    useState<RightSidebarTab>("calendar");
+  const { isDirty, handleDirtyChange } = useEditorDirtyState(activeNote?.path);
+  const { rightSidebarTab, setRightSidebarTab } = useRightSidebarTabState();
 
-  const handleLinkClick = (target: string) => {
-    openNoteByName(target);
-  };
+  const handleLinkClick = useCallback(
+    (target: string) => {
+      openNoteByName(target);
+    },
+    [openNoteByName]
+  );
 
-  const handleTagClick = (_tag: string) => {
+  const handleTagClick = useCallback((_tag: string) => {
     // TODO: Implement tag search/filter
-  };
-
-  const handleDirtyChange = useCallback((dirty: boolean) => {
-    setIsDirty(dirty);
   }, []);
-
-  // 노트 전환 시 dirty state 리셋
-  // biome-ignore lint/correctness/useExhaustiveDependencies: activeNote?.path 변경 시 리셋 의도
-  useEffect(() => {
-    setIsDirty(false);
-  }, [activeNote?.path]);
 
   return (
     <div className="relative flex flex-col size-full">
@@ -150,17 +128,8 @@ function RightSidebarContent({
   onTabChange,
 }: RightSidebarContentProps) {
   const { open } = useSidebar();
-  const [isExpanded, setIsExpanded] = useState(true);
-
-  const toggleExpanded = () => {
-    setIsExpanded((prev) => !prev);
-  };
-
-  useEffect(() => {
-    if (rightSidebarTab !== "chat") {
-      setIsExpanded(false);
-    }
-  }, [rightSidebarTab]);
+  const { isExpanded, toggleExpanded } =
+    useChatSidebarExpansion(rightSidebarTab);
 
   return (
     <>
@@ -198,37 +167,25 @@ function RightSidebarButtons({
 }: RightSidebarButtonsProps) {
   const { open, setOpen } = useSidebar();
 
-  const handleTabClick = (tab: RightSidebarTab) => {
-    if (activeTab === tab && open) {
-      // 같은 탭을 클릭하면 사이드바 토글
-      setOpen(false);
-    } else {
-      // 다른 탭을 클릭하면 해당 탭으로 전환하고 사이드바 열기
-      onTabChange(tab);
-      setOpen(true);
-    }
-  };
+  const openChatPanel = useCallback(() => {
+    onTabChange("chat");
+    setOpen(true);
+  }, [onTabChange, setOpen]);
+  useOpenChatShortcut(openChatPanel);
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (
-        event.defaultPrevented ||
-        event.repeat ||
-        isEditableTarget(event.target)
-      ) {
-        return;
-      }
-
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "i") {
-        event.preventDefault();
-        onTabChange("chat");
+  const handleTabClick = useCallback(
+    (tab: RightSidebarTab) => {
+      if (activeTab === tab && open) {
+        // 같은 탭을 클릭하면 사이드바 토글
+        setOpen(false);
+      } else {
+        // 다른 탭을 클릭하면 해당 탭으로 전환하고 사이드바 열기
+        onTabChange(tab);
         setOpen(true);
       }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onTabChange, setOpen]);
+    },
+    [activeTab, open, onTabChange, setOpen]
+  );
 
   const baseButtonClassName =
     "text-sidebar-foreground/70 hover:bg-sidebar-primary/5 hover:text-sidebar-primary/80";

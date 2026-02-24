@@ -1,50 +1,62 @@
-use keyring::Entry;
+use crate::application::secure as secure_app;
+use crate::platform::{normalize_or_generate_trace_id, AppError, AppResult};
 
-const JIRA_TOKEN_SERVICE: &str = "com.raonc.en-ttokk";
-const JIRA_TOKEN_USERNAME: &str = "jira-api-token";
+fn classify_secure_error(message: &str) -> (&'static str, bool) {
+    let lowered = message.to_lowercase();
 
-#[tauri::command]
-#[specta::specta]
-pub async fn get_jira_token() -> Result<Option<String>, String> {
-    let entry = Entry::new(JIRA_TOKEN_SERVICE, JIRA_TOKEN_USERNAME)
-        .map_err(|error| error.to_string())?;
-
-    match entry.get_password() {
-        Ok(token) => Ok(Some(token)),
-        Err(keyring::Error::NoEntry) => Ok(None),
-        Err(error) => Err(error.to_string()),
+    if lowered.contains("required") || lowered.contains("too long") {
+        return ("invalid_input", false);
     }
+
+    if lowered.contains("temporarily unavailable")
+        || lowered.contains("timeout")
+        || lowered.contains("try again")
+    {
+        return ("secure_store_unavailable", true);
+    }
+
+    if lowered.contains("access denied")
+        || lowered.contains("permission denied")
+        || lowered.contains("locked")
+    {
+        return ("secure_store_unavailable", false);
+    }
+
+    ("secure_store_failed", false)
+}
+
+fn map_secure_error(message: impl Into<String>, trace_id: &str, source: &str) -> AppError {
+    let message = message.into();
+    let (code, retryable) = classify_secure_error(&message);
+    AppError::new(
+        code,
+        message,
+        retryable,
+        trace_id.to_string(),
+        source.to_string(),
+    )
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn set_jira_token(token: String) -> Result<(), String> {
-    let token = token.trim();
-    if token.is_empty() {
-        return Err("API token is required".to_string());
-    }
-    if token.len() > 4096 {
-        return Err("API token is too long".to_string());
-    }
-    let entry = Entry::new(JIRA_TOKEN_SERVICE, JIRA_TOKEN_USERNAME)
-        .map_err(|error| error.to_string())?;
-
-    entry
-        .set_password(token)
-        .map_err(|error| error.to_string())?;
-
-    Ok(())
+pub async fn get_jira_token(trace_id: Option<String>) -> AppResult<Option<String>> {
+    let trace_id = normalize_or_generate_trace_id(trace_id);
+    secure_app::get_jira_token()
+        .map_err(|error| map_secure_error(error, &trace_id, "secure.get_jira_token.execute"))
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn remove_jira_token() -> Result<(), String> {
-    let entry = Entry::new(JIRA_TOKEN_SERVICE, JIRA_TOKEN_USERNAME)
-        .map_err(|error| error.to_string())?;
+pub async fn set_jira_token(token: String, trace_id: Option<String>) -> AppResult<()> {
+    let trace_id = normalize_or_generate_trace_id(trace_id);
+    secure_app::set_jira_token(&token)
+        .map_err(|error| map_secure_error(error, &trace_id, "secure.set_jira_token.execute"))
+}
 
-    match entry.delete_password() {
-        Ok(()) => Ok(()),
-        Err(keyring::Error::NoEntry) => Ok(()),
-        Err(error) => Err(error.to_string()),
-    }
+#[tauri::command]
+#[specta::specta]
+pub async fn remove_jira_token(trace_id: Option<String>) -> AppResult<()> {
+    let trace_id = normalize_or_generate_trace_id(trace_id);
+    secure_app::remove_jira_token()
+        .map_err(|error| map_secure_error(error, &trace_id, "secure.remove_jira_token.execute"))
 }

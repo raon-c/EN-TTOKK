@@ -1,6 +1,7 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { create } from "zustand";
 import { apiClient } from "@/lib/api-client";
+import { normalizeAppError } from "@/lib/platform";
 import { getValue, setValue } from "@/lib/tauri-store";
 import type { GoogleCalendarEvent } from "@/types/api";
 
@@ -89,6 +90,11 @@ const persistState = async (state: GoogleCalendarStore) => {
     lastSyncAt: state.lastSyncAt,
   };
   await setValue(STORAGE_KEY, stored);
+};
+
+const toUserError = (error: unknown, fallback: string) => {
+  const appError = normalizeAppError(error, fallback);
+  return `${appError.message} (trace: ${appError.traceId})`;
 };
 
 const ensureAccessToken = async (
@@ -198,7 +204,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
       } catch (error) {
         set({
           status: "error",
-          error: error instanceof Error ? error.message : "Failed to connect",
+          error: toUserError(error, "Failed to connect"),
         });
       }
     },
@@ -274,7 +280,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
         } else {
           set({
             status: "error",
-            error: error instanceof Error ? error.message : "Sync failed",
+            error: toUserError(error, "Sync failed"),
           });
         }
       } finally {
@@ -311,8 +317,7 @@ export const useGoogleCalendarStore = create<GoogleCalendarStore>(
       } catch (error) {
         set({
           status: "error",
-          error:
-            error instanceof Error ? error.message : "Failed to load events",
+          error: toUserError(error, "Failed to load events"),
         });
       } finally {
         set({ isDayLoading: false });

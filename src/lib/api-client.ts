@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { invokeCommand, normalizeAppError, withRetry } from "@/lib/platform";
 import type {
   ChatRequest,
   ChatResponse,
@@ -35,15 +35,6 @@ const parseJson = <T>(jsonText: string, fallback: T): T => {
   }
 };
 
-const resolveErrorMessage = (
-  error: unknown,
-  fallback: string = "Unknown error"
-): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return fallback;
-};
-
 const resolveGoogleTokenErrorMessage = (
   data: Record<string, unknown>,
   status: number
@@ -72,27 +63,42 @@ const resolveGoogleTokenErrorMessage = (
 
 export const apiClient = {
   async healthCheck(): Promise<HealthResponse> {
-    return invoke<HealthResponse>("ipc_health_check");
+    return invokeCommand<HealthResponse>("ipc_health_check", undefined, {
+      fallbackMessage: "Failed to connect to app service",
+      source: "backend.health",
+      code: "backend_unavailable",
+      retries: 1,
+      retryDelayMs: 200,
+      traceArgName: "traceId",
+    });
   },
 
   async waitForBackend(maxRetries = 30, retryDelay = 500): Promise<boolean> {
-    for (let i = 0; i < maxRetries; i++) {
-      try {
-        await this.healthCheck();
-        return true;
-      } catch {
-        if (i < maxRetries - 1) {
-          await new Promise((resolve) => setTimeout(resolve, retryDelay));
-        }
-      }
+    try {
+      await withRetry(() => this.healthCheck(), {
+        retries: Math.max(0, maxRetries - 1),
+        baseDelayMs: retryDelay,
+        factor: 1,
+        shouldRetry: () => true,
+      });
+      return true;
+    } catch {
+      return false;
     }
-    return false;
   },
 
   // Chat API methods
   chat: {
     async checkStatus(): Promise<ClaudeStatusResponse> {
-      return invoke<ClaudeStatusResponse>("chat_check_status");
+      return invokeCommand<ClaudeStatusResponse>(
+        "chat_check_status",
+        undefined,
+        {
+          fallbackMessage: "Failed to check Claude CLI status",
+          source: "backend.chat.status",
+          code: "chat_status_failed",
+        }
+      );
     },
 
     async sendMessage(request: ChatRequest): Promise<ChatResponse> {
@@ -217,28 +223,52 @@ export const apiClient = {
         unlisten?.();
       };
 
-      (async () => {
+      void (async () => {
         try {
-          await invoke("chat_start_stream", {
-            input: {
-              requestId,
-              message: request.message,
-              workingDirectory: request.workingDirectory,
-              sessionId: request.sessionId,
-              systemPrompt: request.systemPrompt,
-              conversationId: request.conversationId,
+          await invokeCommand<null>(
+            "chat_start_stream",
+            {
+              input: {
+                requestId,
+                message: request.message,
+                workingDirectory: request.workingDirectory,
+                sessionId: request.sessionId,
+                systemPrompt: request.systemPrompt,
+                conversationId: request.conversationId,
+              },
             },
-          });
+            {
+              fallbackMessage: "Failed to start Claude stream",
+              source: "backend.chat.stream",
+              code: "chat_stream_start_failed",
+              traceArgName: "traceId",
+            }
+          );
         } catch (error) {
           await cleanup();
-          callbacks.onError?.(resolveErrorMessage(error));
+          const appError = normalizeAppError(
+            error,
+            "Failed to start Claude stream"
+          );
+          callbacks.onError?.(
+            `${appError.message} (trace: ${appError.traceId})`
+          );
         }
       })();
 
       return {
         abort: () => {
           void (async () => {
-            await invoke("chat_cancel_stream", { requestId }).catch(() => null);
+            await invokeCommand<boolean>(
+              "chat_cancel_stream",
+              { requestId },
+              {
+                fallbackMessage: "Failed to cancel Claude stream",
+                source: "backend.chat.cancel",
+                code: "chat_stream_cancel_failed",
+                traceArgName: "traceId",
+              }
+            ).catch(() => null);
             await cleanup();
           })();
         },
@@ -246,9 +276,16 @@ export const apiClient = {
     },
 
     async cancelRequest(requestId: string): Promise<{ cancelled: boolean }> {
-      const cancelled = await invoke<boolean>("chat_cancel_stream", {
-        requestId,
-      });
+      const cancelled = await invokeCommand<boolean>(
+        "chat_cancel_stream",
+        { requestId },
+        {
+          fallbackMessage: "Failed to cancel Claude stream",
+          source: "backend.chat.cancel",
+          code: "chat_stream_cancel_failed",
+          traceArgName: "traceId",
+        }
+      );
       return { cancelled };
     },
   },
@@ -256,13 +293,29 @@ export const apiClient = {
   // Google Calendar integration methods
   googleCalendar: {
     async prepareOAuth(state: string): Promise<void> {
-      await invoke("google_prepare_oauth", { state });
+      await invokeCommand<null>(
+        "google_prepare_oauth",
+        { state },
+        {
+          fallbackMessage: "Failed to prepare Google OAuth",
+          source: "backend.google.oauth.prepare",
+          code: "google_oauth_prepare_failed",
+          traceArgName: "traceId",
+        }
+      );
     },
 
     async pollAuthResult(state: string): Promise<GoogleCalendarAuthResult> {
-      return invoke<GoogleCalendarAuthResult>("google_poll_oauth_result", {
-        state,
-      });
+      return invokeCommand<GoogleCalendarAuthResult>(
+        "google_poll_oauth_result",
+        { state },
+        {
+          fallbackMessage: "Failed to poll Google OAuth result",
+          source: "backend.google.oauth.poll",
+          code: "google_oauth_poll_failed",
+          traceArgName: "traceId",
+        }
+      );
     },
 
     async exchangeToken(params: {
@@ -274,15 +327,30 @@ export const apiClient = {
       clientId: string;
       clientSecret?: string;
     }): Promise<GoogleCalendarTokenResponse> {
-      const response = await invoke<HttpProxyResponse>(
+      const response = await invokeCommand<HttpProxyResponse>(
         "google_exchange_token",
         {
           params,
+        },
+        {
+          fallbackMessage: "Google token exchange failed",
+          source: "backend.google.oauth.exchange",
+          code: "google_token_exchange_failed",
+          traceArgName: "traceId",
         }
       );
+
       const data = parseJson<Record<string, unknown>>(response.dataJson, {});
       if (response.status >= 400) {
-        throw new Error(resolveGoogleTokenErrorMessage(data, response.status));
+        throw normalizeAppError(
+          new Error(resolveGoogleTokenErrorMessage(data, response.status)),
+          "Google token exchange failed",
+          {
+            code: "google_token_exchange_failed",
+            retryable: response.status >= 500 || response.status === 429,
+            source: "backend.google.oauth.exchange",
+          }
+        );
       }
       return data as unknown as GoogleCalendarTokenResponse;
     },
@@ -296,9 +364,19 @@ export const apiClient = {
       pageToken?: string;
       maxResults?: number;
     }): Promise<{ status: number; data: GoogleCalendarEventsResponse }> {
-      const response = await invoke<HttpProxyResponse>("google_list_events", {
-        params,
-      });
+      const response = await invokeCommand<HttpProxyResponse>(
+        "google_list_events",
+        {
+          params,
+        },
+        {
+          fallbackMessage: "Failed to fetch Google Calendar events",
+          source: "backend.google.events.list",
+          code: "google_events_failed",
+          traceArgName: "traceId",
+        }
+      );
+
       const data = parseJson<GoogleCalendarEventsResponse>(
         response.dataJson,
         {}
@@ -310,21 +388,29 @@ export const apiClient = {
   // Jira integration methods
   jira: {
     async testConnection(params: JiraTestRequest): Promise<JiraTestResponse> {
-      try {
-        return await invoke<JiraTestResponse>("jira_test_connection", {
-          params,
-        });
-      } catch (error) {
-        throw new Error(resolveErrorMessage(error, "Jira test failed"));
-      }
+      return invokeCommand<JiraTestResponse>(
+        "jira_test_connection",
+        { params },
+        {
+          fallbackMessage: "Jira test failed",
+          source: "backend.jira.test",
+          code: "jira_test_failed",
+          traceArgName: "traceId",
+        }
+      );
     },
 
     async listIssues(params: JiraIssuesRequest): Promise<JiraIssuesResponse> {
-      try {
-        return await invoke<JiraIssuesResponse>("jira_list_issues", { params });
-      } catch (error) {
-        throw new Error(resolveErrorMessage(error, "Jira issues failed"));
-      }
+      return invokeCommand<JiraIssuesResponse>(
+        "jira_list_issues",
+        { params },
+        {
+          fallbackMessage: "Jira issues failed",
+          source: "backend.jira.issues",
+          code: "jira_issues_failed",
+          traceArgName: "traceId",
+        }
+      );
     },
   },
 };

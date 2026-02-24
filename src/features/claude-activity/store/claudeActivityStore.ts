@@ -4,6 +4,7 @@ import {
   getClaudeActivityDates,
   listClaudeProjects,
 } from "@/lib/claude";
+import { normalizeAppError } from "@/lib/platform";
 import { getKstDateKey } from "@/lib/shared";
 import { getValue, setValue } from "@/lib/tauri-store";
 
@@ -49,17 +50,9 @@ type ClaudeActivityStoreState = {
 
 const formatDateKey = (date: Date) => getKstDateKey(date);
 
-const resolveErrorMessage = (error: unknown, fallback: string): string => {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message: unknown }).message);
-  }
-  try {
-    return JSON.stringify(error);
-  } catch {
-    return fallback;
-  }
+const toUserError = (error: unknown, fallback: string): string => {
+  const appError = normalizeAppError(error, fallback);
+  return `${appError.message} (trace: ${appError.traceId})`;
 };
 
 const fetchActivity = async (
@@ -89,10 +82,7 @@ const fetchActivity = async (
       error: null,
     });
   } catch (error) {
-    const message = resolveErrorMessage(
-      error,
-      "Failed to load Claude activity"
-    );
+    const message = toUserError(error, "Failed to load Claude activity");
     if (get().activeRequestId !== requestId) return;
     set({
       status: "error",
